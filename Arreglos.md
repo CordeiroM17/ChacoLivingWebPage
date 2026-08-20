@@ -711,3 +711,122 @@ páginas de disco hasta que corre `VACUUM`, así que la tabla seguía pesando lo
 antes de borrar, y eso favorecía al índice de manera artificial. La medición de la tabla
 de arriba es la corregida: siempre creciendo, nunca borrando, para que el tamaño físico
 de la tabla en cada paso sea el real.
+
+---
+
+## 12. Login real con Google, en vez del token fijo
+
+**Fecha:** 20/08/2026
+**Archivos:** `backend/app/auth.py`, `backend/app/routers/auth.py` (nuevo), `backend/app/main.py`,
+`backend/requirements.txt`, `frontend/src/pages/Login.jsx` (nuevo), `frontend/src/components/RutaProtegida.jsx`
+(nuevo), `frontend/src/utils/sesion.js` (nuevo), `frontend/src/api/auth.js` (nuevo),
+`frontend/src/api/client.js`, `frontend/src/api/fotos.js`, `frontend/src/App.jsx`, `frontend/index.html`
+
+### El problema
+
+El cierre de la 0.0.1 (ver el informe de auditoría de despliegue) marcó que el token fijo
+(`API_TOKEN`) queda escrito **dentro del JavaScript compilado**: Vite lo reemplaza por su
+valor literal, así que cualquiera que abra el inspector del navegador en la URL pública
+puede leerlo y usar la API directo. En local, con la app en la red del galpón, no
+importaba. En internet, era el secreto real de toda la aplicación.
+
+### El arreglo
+
+Login con Google (OAuth / OpenID Connect), elegido en vez de usuario y contraseña propios
+porque no hay contraseña que gestionar ni hashear, y el email de Google ya identifica
+"quién cargó cada pedido" de cara al roadmap de producción. Se descartó "Sign in with
+Apple" para esta etapa: a diferencia de Google, requiere una cuenta de Apple Developer
+paga (US$99/año) — decisión tomada explícitamente por el usuario, no algo que dependa del
+código.
+
+**Cómo queda el flujo:**
+
+1. El frontend muestra el botón de Google (Google Identity Services, cargado desde
+   `accounts.google.com/gsi/client` en `index.html`).
+2. Google devuelve un `credential` — un JWT firmado por Google, no una contraseña —
+   directo al navegador. El backend nunca ve ninguna credencial de Google.
+3. El frontend manda ese `credential` a `POST /api/auth/google`.
+4. El backend lo verifica con la librería oficial (`google-auth`), contra
+   `GOOGLE_CLIENT_ID`. Si es válido, revisa que el email esté en `ADMIN_EMAILS` (lista
+   blanca por variable de entorno) y que Google lo tenga verificado.
+5. Si pasa las dos validaciones, el backend emite **su propio** JWT de sesión (firmado con
+   `JWT_SECRET_KEY`, 30 días de expiración por defecto — es una tablet compartida en el
+   galpón, no una app personal, así que pedir contraseña seguido solo molesta).
+6. Ese token (no el de Google) es el que viaja en `Authorization: Bearer` en cada pedido
+   siguiente, y es el que reemplaza al `API_TOKEN` fijo.
+
+`require_token` pasó de comparar contra un string fijo a decodificar y validar este JWT
+propio (firma, expiración). El resto de los endpoints no cambiaron: siguen usando
+`Depends(require_token)` igual que antes.
+
+**En el frontend:** `src/utils/sesion.js` centraliza el token en `localStorage`;
+`client.js` y `fotos.js` lo adjuntan en vez de leer `VITE_API_TOKEN` (que ya no existe);
+un `401` en cualquier pedido borra el token y manda a `/login`, sin importar en qué
+pantalla haya pasado. `RutaProtegida` bloquea sincrónicamente el acceso a las tres
+pantallas si no hay token guardado. El botón "Salir" quedó en el encabezado (no es una
+sección de navegación, es una acción global).
+
+**Detalle de eficiencia:** el catálogo de modelos (sección 4) ya no intenta cargarse al
+montar la app si todavía no hay sesión — antes de este cambio, entrar a `/login` disparaba
+una petición a `/modelos` condenada a un `401`. `Login.jsx` llama a `refrescar()` del
+catálogo apenas guarda el token, así que el catálogo queda listo enseguida después de
+iniciar sesión, sin esperar a que otra pantalla lo pida.
+
+**Falla ruidosa si falta configuración**, seguido de la misma lógica que ya se aplicaba a
+`JWT_SECRET_KEY`: si `GOOGLE_CLIENT_ID` o `ADMIN_EMAILS` no están seteados, el backend
+directamente no arranca — mejor eso que arrancar aceptando cualquier cosa.
+
+### Verificación
+
+Lo que se puede probar sin depender de las credenciales reales de Google (que solo se
+generan una vez que el dueño de la cuenta crea el proyecto en Google Cloud Console):
+
+- 9 pruebas automatizadas: un `credential` que no es un JWT de Google se rechaza (401); la
+  lista blanca de `ADMIN_EMAILS` deja fuera a un email no autorizado (403) y dentro a uno
+  autorizado (sin importar mayúsculas/espacios); `email_verified=False` también se
+  rechaza; el JWT propio hace el viaje completo de ida y vuelta; `require_token` rechaza
+  un token vencido, uno firmado con otra clave, y una cadena cualquiera que no sea un JWT.
+- Por HTTP real contra el backend en ejecución: sin token → 403 (`Not authenticated`,
+  comportamiento de FastAPI/`HTTPBearer`, no cambiado); token basura → 401; `/auth/google`
+  con un `credential` inválido → 401; con un campo de más en el body → 422 (`extra=forbid`
+  sigue vigente); `/api/health` sigue público; un token propio válido (emitido a mano,
+  simulando un login ya hecho) sí puede leer `/api/modelos`.
+- `npm run build` y `npm run lint` del frontend, limpios.
+
+**Lo que NO se pudo probar:** el intercambio real con `accounts.google.com` — necesita el
+`GOOGLE_CLIENT_ID` real, que solo existe una vez que se crea en Google Cloud Console. Ver
+README para los pasos exactos; una vez configurado, hay que probar el botón a mano.
+
+### De paso, los tres bloqueantes de despliegue
+
+Ya que se estaba tocando esta misma zona (arranque del backend, variables de entorno),
+se resolvieron los tres puntos marcados como bloqueantes en el informe de cierre:
+
+- **`backend/Dockerfile`**: el `CMD` ahora usa `${PORT:-8000}` en vez de `8000` fijo — así
+  Railway puede asignar el puerto que quiera. El `:-8000` mantiene `docker compose` local
+  funcionando igual.
+- **Ruta de uploads configurable**: se centralizó en `backend/app/config.py`
+  (`UPLOADS_DIR`, tomado de una variable de entorno opcional). `main.py`, `comprobantes.py`
+  y `routers/fotos.py` ahora importan de ahí en vez de recalcular la ruta cada uno por su
+  lado. Sin la variable, el comportamiento local no cambió un bit. Con ella, alcanza con
+  apuntarla al punto de montaje de un volumen persistente de Railway.
+- **CORS**: `allow_origins` ahora lee `CORS_ORIGINS` (separado por comas), con `"*"` de
+  respaldo si no está seteada, para no romper el desarrollo local.
+
+Lo que sigue sin resolverse, a propósito: correr `schema.sql` contra el Postgres de
+Railway sigue siendo manual (Railway no ejecuta scripts de init como sí hace la imagen de
+Postgres en local). Documentado como pendiente en el informe de cierre — la decisión de
+sumar Alembic queda para cuando el esquema empiece a moverse más seguido.
+
+### Lo que necesita el usuario para terminar de activar esto
+
+1. Crear un proyecto en [Google Cloud Console](https://console.cloud.google.com/), pantalla
+   de consentimiento OAuth en modo "Testing" alcanza (no hace falta publicarlo ni pasar
+   revisión de Google para este uso).
+2. Crear credenciales → ID de cliente de OAuth → tipo "Aplicación web". Cargar como
+   orígenes de JavaScript autorizados `http://localhost:5173` (dev) y, más adelante, la URL
+   real del frontend en producción.
+3. Copiar el Client ID (termina en `.apps.googleusercontent.com`, no es secreto) a
+   `GOOGLE_CLIENT_ID` en `backend/.env` y a `VITE_GOOGLE_CLIENT_ID` en `frontend/.env`.
+4. Confirmar que `ADMIN_EMAILS` en `backend/.env` tiene el email de Google correcto
+   (quedó precargado con el que se usó en esta sesión — revisarlo).
