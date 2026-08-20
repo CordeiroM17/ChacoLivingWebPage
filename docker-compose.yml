@@ -11,6 +11,9 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      # Ojo: estos dos scripts los corre Postgres UNA SOLA VEZ, cuando el
+      # volumen db_data está vacío. Si cambiás schema.sql y querés que se
+      # aplique, hay que borrar el volumen (ver README, "Reiniciar la base").
       - ./sql/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
       - ./sql/seed.sql:/docker-entrypoint-initdb.d/2_seed.sql
     healthcheck:
@@ -19,5 +22,48 @@ services:
       timeout: 5s
       retries: 5
 
+  # Perfil "completo": NO arranca con `docker compose up -d db`, que sigue
+  # levantando solo la base como siempre. Sirve para correr exactamente la
+  # misma imagen que va a correr en Railway, y detectar antes de desplegar
+  # cualquier diferencia entre "anda en mi máquina" y "anda en el servidor".
+  #
+  #   docker compose --profile completo up --build
+  #
+  # IMPORTANTE: parar el uvicorn del venv antes de usar este perfil. Los dos
+  # escuchan en el 8000 y Windows los deja convivir a medias: las peticiones
+  # caen en uno o en otro sin criterio, y aparecen errores 500 fantasma que
+  # no figuran en ningún log. Es uno O el otro, nunca los dos.
+  #
+  # Para el día a día conviene seguir con uvicorn en el venv: recarga en
+  # caliente al guardar un archivo, cosa que acá no pasa.
+  backend:
+    profiles: ["completo"]
+    build: ./backend
+    container_name: sillones_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Dentro de la red de Docker, la base se llama "db", no "localhost"
+      # (localhost sería el propio contenedor del backend).
+      DATABASE_URL: postgresql://sillones:sillones@db:5432/sillones
+      # Simula lo que hace Railway: asignar un puerto por variable de entorno.
+      PORT: 8000
+      # Las fotos y los comprobantes van a un volumen, no al disco del
+      # contenedor: así sobreviven a que se reconstruya la imagen, igual que
+      # tienen que hacerlo en Railway.
+      UPLOADS_DIR: /datos/uploads
+    env_file:
+      # Toma JWT_SECRET_KEY, GOOGLE_CLIENT_ID y ADMIN_EMAILS de tu .env local.
+      # DATABASE_URL y PORT de arriba pisan a los del archivo, que apuntan a
+      # localhost y solo sirven para correr fuera de Docker.
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/datos/uploads
+
 volumes:
   db_data:
+  uploads_data:

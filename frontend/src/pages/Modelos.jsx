@@ -100,7 +100,7 @@ export default function Modelos() {
   }
 
   return (
-    <div className="pagina">
+    <div className="pagina vista-entra">
       <h1>Modelos</h1>
       <Aviso tipo={aviso?.tipo} mensaje={aviso?.mensaje} />
 

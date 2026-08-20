@@ -830,3 +830,233 @@ sumar Alembic queda para cuando el esquema empiece a moverse más seguido.
    `GOOGLE_CLIENT_ID` en `backend/.env` y a `VITE_GOOGLE_CLIENT_ID` en `frontend/.env`.
 4. Confirmar que `ADMIN_EMAILS` en `backend/.env` tiene el email de Google correcto
    (quedó precargado con el que se usó en esta sesión — revisarlo).
+
+---
+
+## 13. "Ver pedidos" con ruta propia por pedido, y movimiento sutil en los dos únicos
+    lugares donde importa
+
+**Fecha:** 20/08/2026
+**Archivos:** `frontend/src/pages/VerPedidos.jsx`, `frontend/src/pages/DetallePedido.jsx` (nuevo),
+`frontend/src/pages/TomarPedido.jsx`, `frontend/src/App.jsx`, `frontend/src/App.css`
+
+Trabajo pedido vía `/impeccable shape` (planificación del flujo) seguido de
+`/impeccable animate` (movimiento) en el mismo pase, sobre el flujo completo de la app
+(login + las tres secciones) como prolijada preventiva antes de sumar funcionalidades
+nuevas sobre la 0.0.2 — no había un problema puntual reportado.
+
+### El problema
+
+**Estructural:** "Ver pedidos" resolvía lista y detalle con el mismo componente y un
+`if` al principio que reemplazaba todo el árbol (`pedidoSeleccionado` en estado local).
+Un pedido no tenía URL propia: el botón atrás del navegador no volvía a la lista, y
+refrescar la página en el detalle te devolvía a la lista sin el pedido. El asistente de
+"Tomar pedido" tenía dos de sus cuatro pasos (Confirmar y Factura-tras-guardar) sin
+título propio, a diferencia de Cliente y Sillones.
+
+**De movimiento:** cambiar de paso en el asistente, o entrar al detalle de un pedido,
+pasaba de una vista a otra de forma instantánea, sin ninguna señal de continuidad.
+
+### El arreglo
+
+**Ver pedidos → lista + detalle con ruta real.** Se separó en dos componentes:
+`VerPedidos.jsx` (solo lista, filtros y paginación) y `DetallePedido.jsx` (nuevo, con
+`useParams()` para leer el id). Rutas nuevas en `App.jsx`: `/pedidos` y `/pedidos/:id`,
+las dos protegidas igual que el resto. Cada fila de la lista pasó de `<button
+onClick={...}>` a `<Link to={.../pedidos/${id}}>` — con eso, atrás/adelante del
+navegador y refrescar la página ya funcionan como se espera.
+
+**Tomar pedido: título de paso en los dos que faltaban.** Se agregó `<h2>Confirmar</h2>`
+y `<h2>Factura</h2>` antes de sus respectivas tarjetas, para que los cuatro pasos tengan
+la misma estructura (título del paso, después el contenido) — sin tocar la cantidad ni
+el orden de los pasos, ni el texto de "Confirmar pedido" del paso previo al guardado
+(ese es contenido explícitamente elegido por el usuario en una corrección anterior de
+esta misma sesión, no una etiqueta de paso).
+
+**Movimiento: un solo material, en dos lugares con significado real.** Una clase
+(`.vista-entra`) con un único keyframe (opacidad + 6px de traslado vertical, 220ms,
+`cubic-bezier(0.16, 1, 0.3, 1)` — sin rebote) reutilizado en exactamente dos puntos:
+
+- El contenido de cada paso del asistente (`key={pedidoGuardado ? "guardado" : paso}`,
+  así también se repite justo en el momento en que el pedido queda guardado, no solo al
+  cambiar de paso).
+- La raíz de `DetallePedido.jsx`, para que abrir un pedido se sienta como entrar a un
+  lugar, no como un parpadeo.
+
+Deliberadamente **no** se animó la navegación lateral entre Tomar pedido / Ver pedidos /
+Modelos (es un cambio de sección, no "entrar más profundo a algo"), ni los botones de
+navegación del asistente (quedaron fuera del wrapper animado a propósito, para que no se
+muevan bajo el dedo justo cuando se los va a tocar). El resto del vocabulario de
+movimiento que ya existía (botones, stepper, `Aviso`) no se tocó — ya cumplía con lo
+mismo que se buscaba acá.
+
+**Sin `!important` en ningún lado.** La primera versión de esto usaba el patrón estándar
+de accesibilidad para `prefers-reduced-motion` (anular animaciones con `!important` a
+nivel global) — se descartó por pedido explícito del usuario. En su lugar, la regla
+`.vista-entra` solo se declara dentro de `@media (prefers-reduced-motion: no-preference)`:
+si el sistema pide reducir el movimiento, la clase directamente no tiene ninguna
+animación que aplicar, sin necesidad de pisar nada.
+
+### Efecto colateral encontrado al migrar de `<button>` a `<Link>`
+
+Dos clases (`.pedido-fila`, usada en cada fila de la lista, y `.boton-texto`, usada en
+"Volver a la lista") pasaron de aplicarse solo a `<button>` a aplicarse también a
+`<a>` (lo que renderiza `<Link>`). Los botones no tienen subrayado ni color de enlace
+por defecto — los `<a>` sí. Se agregó `color: inherit; text-decoration: none;` a ambas
+reglas para que se vean exactamente igual que antes.
+
+### Verificación
+
+`npm run lint` y `npm run build` limpios. El servidor de desarrollo (`vite`) sirve el
+shell de la app sin errores. **No se pudo probar interactivamente en un navegador real**
+(clickear el asistente paso a paso, abrir un pedido y volver con el botón atrás) — esta
+sesión no tiene una herramienta de control de navegador disponible; queda pendiente que
+el usuario lo prueba a mano, igual que quedó pendiente el click real del botón de
+Google en la sección 12.
+
+---
+
+## 14. El catálogo se reordenaba solo con cualquier edición, y fundido agregado a
+    "Ver pedidos" / "Modelos"
+
+**Fecha:** 20/08/2026
+**Archivos:** `frontend/src/context/CatalogoContext.jsx`, `frontend/src/pages/VerPedidos.jsx`,
+`frontend/src/pages/Modelos.jsx`
+
+### El bug: reordenar el catálogo entero al desactivar (o editar) un modelo
+
+Reportado por el usuario: al desactivar un modelo en "Modelos", la lista entera saltaba
+a otro orden. La causa, confirmada contra la base real: `aplicarModelo()` (en
+`CatalogoContext.jsx`) volvía a ordenar **todo** el array con `localeCompare` de
+JavaScript después de cada edición, para "igualar" el `ORDER BY nombre` que ya usa el
+backend. El problema es que los dos comparadores no siempre coinciden con acentos —
+verificado con los nombres reales de esta base: Postgres ordena
+`Sillon Test` **antes** de `Sillón 1/2/3`, pero `localeCompare` lo ordena **después**.
+Apenas se disparaba el primer `aplicarModelo()` (con cualquier edición, no solo
+desactivar — nombre incluido, aunque no hubiera cambiado), el array saltaba del orden
+del backend al orden de JS, un reacomodo visible de todo el catálogo por un modelo que
+ni siquiera era el que se estaba editando.
+
+Nota aparte: `Sillon Test` no es un modelo de prueba mío (los míos llevan prefijo
+`__PRUEBA_` o `ZZ_TEST_` y se borran siempre al terminar) — quedó de alguna prueba del
+usuario. No se tocó; queda a su criterio desactivarlo o borrarlo.
+
+**El arreglo:** `aplicarModelo()` ya no reordena nada. Reemplaza el modelo editado en su
+misma posición, o lo agrega al final si es uno nuevo — el orden que trae el backend al
+cargar el catálogo queda intacto pase lo que pase después. Costo aceptado: un modelo
+recién creado puede no aparecer en su posición alfabética exacta hasta la próxima
+recarga real del catálogo (próxima sesión, o refresco de página) — mejor eso que mover
+todo lo demás sin avisar.
+
+**Verificación:** simulado con los 6 modelos reales de la base (mismo orden que devuelve
+hoy Postgres) y una desactivación del modelo "Bristol": el orden del array antes y
+después es idéntico, y el campo `activo` se actualiza correctamente.
+
+### El fundido, extendido a "Ver pedidos" y "Modelos"
+
+La sección 13 documentó una decisión deliberada: no animar el cambio lateral entre
+Tomar pedido / Ver pedidos / Modelos, solo los dos lugares con una relación real
+(pasos del asistente, entrar al detalle de un pedido). Consultado explícitamente, el
+usuario pidió extenderlo: que las tres secciones se sientan igual de suaves. Se agregó
+la misma clase `.vista-entra` (mismo keyframe, mismo 220ms, ya usada en el resto de la
+app) a la raíz de `VerPedidos.jsx` y `Modelos.jsx` — como son componentes de ruta
+distintos, React ya los monta de nuevo en cada cambio de pestaña, así que el fundido se
+repite solo, sin lógica adicional. `TomarPedido.jsx` no se tocó: su contenido principal
+ya se funde vía el wrapper de pasos de la sección 13.
+
+### Verificación
+
+`npm run lint` y `npm run build` limpios, 36/36 pruebas de esquemas. El reordenamiento se
+verificó con los datos reales de la base (arriba). El fundido nuevo en "Ver pedidos" y
+"Modelos" no se pudo probar interactivamente por la misma limitación de entorno de la
+sección 13 (sin herramienta de control de navegador) — a confirmar a mano.
+
+---
+
+## 15. Regenerar comprobantes, y lo que faltaba para desplegar
+
+**Fecha:** 20/08/2026
+**Archivos:** `backend/app/routers/pedidos.py`, `backend/.dockerignore` (nuevo),
+`docker-compose.yml`, `frontend/vercel.json` (nuevo), `frontend/src/api/pedidos.js`,
+`frontend/src/pages/DetallePedido.jsx`, `README.md`
+
+### El botón para regenerar el comprobante
+
+**Por qué:** el comprobante es **dato derivado**, no original. Se verificó regenerando el
+PDF de un pedido real usando solo lo que hay en la base: salió idéntico en tamaño al
+original (2.233 bytes los dos). Todo lo que necesita —código, cliente, ítems, precios,
+total, notas— vive en la tabla `pedidos`.
+
+Eso convierte dos situaciones molestas en recuperables:
+
+- Un pedido que quedó **sin comprobante** porque la generación falló en el alta (el
+  `try/except` de `crear_pedido`, sección 10). En la base actual hay uno real así:
+  `P-2026-0005`.
+- Un archivo **perdido**: si el disco donde viven los uploads se borra —lo que pasa en
+  cada redeploy de Railway si no hay volumen persistente— la fila del pedido queda
+  apuntando a un archivo inexistente.
+
+**Qué se agregó:** `POST /api/pedidos/{id}/comprobante`, que recarga el pedido con sus
+ítems y modelos, regenera el PDF y devuelve el pedido actualizado. En el frontend, el
+detalle del pedido muestra "Generar comprobante" (botón secundario) cuando no hay
+ninguno, y "Generar de nuevo" (botón de texto, discreto a propósito) cuando ya existe —
+en ese caso es una salida de emergencia, no una acción de uso diario.
+
+**Verificación**, contra la base real:
+
+| Caso | Resultado |
+|---|---|
+| Pedido sin comprobante (`P-2026-0005`) | `200`, `comprobante_url` poblada, archivo de 2.261 bytes creado en disco |
+| El archivo generado | `%PDF-` en la cabecera, se descarga por HTTP con `200` |
+| Regenerar uno que ya existía (`P-2026-0007`) | `200`, tamaño idéntico antes y después (2.233 bytes) |
+| Pedido inexistente | `404` — *Pedido no encontrado* |
+| Sin token | `403` — la ruta está protegida como el resto |
+
+### Docker: dos problemas que encontré al revisarlo
+
+No existía `.dockerignore`, con dos consecuencias medidas:
+
+1. **107 MB de contexto de build**, de los cuales 106,8 MB eran `venv/` — que el
+   Dockerfile ni siquiera usa (instala desde `requirements.txt` dentro de la imagen).
+2. **Los comprobantes reales de clientes quedaban dentro de la imagen.** `COPY app ./app`
+   se llevaba `app/uploads/comprobantes/*.pdf`: cuatro facturas con nombres y precios
+   reales, que habrían viajado al registro de Railway.
+
+Se agregó `backend/.dockerignore` excluyendo `venv/`, `app/uploads/`, `__pycache__/` y
+`.env`. Imagen resultante: 255 MB, verificada sin `venv` y sin `uploads` adentro.
+
+**También le faltaba una pieza a compose:** solo tenía la base, así que `docker compose
+up` no levantaba la aplicación. Se agregó el servicio `backend` bajo el perfil
+`completo`, de modo que `docker compose up -d db` sigue comportándose exactamente igual
+que antes, y `docker compose --profile completo up --build` corre la misma imagen que va
+a correr en Railway.
+
+**Verificado de punta a punta:** el contenedor arrancado con `PORT=9137` escuchó en ese
+puerto (era el bloqueante de Railway, ahora probado y no solo escrito), se conectó a
+Postgres y devolvió datos reales; con `UPLOADS_DIR=/datos` sobre un volumen montado, un
+archivo escrito adentro sobrevivió a la destrucción del contenedor.
+
+**Una trampa que apareció durante la prueba:** el uvicorn del venv y el contenedor pelean
+por el 8000, y Windows los deja convivir a medias — las peticiones caen en uno o en otro
+sin criterio y aparecen errores 500 que no figuran en ningún log. Quedó advertido en el
+`docker-compose.yml` y en el README: es uno **o** el otro, nunca los dos.
+
+### Vercel: el rewrite que la SPA necesitaba
+
+Con la ruta `/pedidos/:id` de la sección 13, entrar directo a `/pedidos/7` o refrescar en
+el detalle de un pedido daría **404** en Vercel: no existe ningún archivo en esa ruta (el
+build produce un solo `index.html`, confirmado). Se agregó `frontend/vercel.json` con el
+rewrite catch-all estándar. Vercel resuelve archivos estáticos **antes** de aplicar
+rewrites, así que los assets se siguen sirviendo normalmente y solo las rutas
+inexistentes caen a `index.html`.
+
+Nota de método: la primera versión del rewrite usaba una expresión regular con
+lookahead para excluir assets. Al probarla, 4 de 11 rutas fallaban. Se reemplazó por el
+catch-all simple, que es el patrón recomendado y no depende de un regex delicado.
+
+### README
+
+Se reescribió la guía de Docker (comandos del día a día, cómo reiniciar la base desde
+cero, por qué `schema.sql` no se re-aplica con un `restart`) y la de despliegue, ahora
+paso a paso para Railway y Vercel con las variables de cada uno, el `Root Directory` que
+hace falta en ambos por ser monorepo, y la prueba final del volumen.

@@ -1,0 +1,21 @@
+# Entorno virtual local: son ~107 MB que se enviarían al daemon en cada build
+# sin que el Dockerfile los use (las dependencias se instalan desde
+# requirements.txt dentro de la imagen).
+venv/
+.venv/
+
+# Archivos subidos y comprobantes generados: son datos reales de clientes.
+# No tienen por qué viajar dentro de la imagen — en producción viven en un
+# volumen persistente (ver UPLOADS_DIR), no en el sistema de archivos de la
+# imagen.
+app/uploads/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Los secretos se cargan como variables de entorno en Railway, nunca
+# horneados en la imagen.
+.env

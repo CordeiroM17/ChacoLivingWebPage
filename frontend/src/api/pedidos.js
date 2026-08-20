@@ -56,4 +56,11 @@ export const pedidosApi = {
       await api.patch(`/pedidos/${id}`, dto),
       "el pedido editado"
     ),
+
+  regenerarComprobante: async (id) =>
+    validarRespuesta(
+      pedidoDetalleSchema,
+      await api.post(`/pedidos/${id}/comprobante`),
+      "el comprobante regenerado"
+    ),
 };

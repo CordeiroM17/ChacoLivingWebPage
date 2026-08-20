@@ -199,6 +199,39 @@ def obtener_pedido(pedido_id: int, db: Session = Depends(get_db)):
     return pedido
 
 
+@router.post("/{pedido_id}/comprobante", response_model=schemas.PedidoDetalleOut)
+def regenerar_comprobante(pedido_id: int, db: Session = Depends(get_db)):
+    """Vuelve a generar el PDF de un pedido ya guardado.
+
+    El comprobante es dato derivado: todo lo que necesita (código, cliente,
+    ítems, precios, total, notas) vive en la base, así que se reconstruye
+    idéntico en cualquier momento. Sirve para dos casos reales:
+
+    - Un pedido que quedó sin comprobante porque la generación falló en el alta
+      (ver el `try/except` de `crear_pedido`).
+    - Un archivo perdido: si el disco donde viven los uploads se borra —lo que
+      pasa en cada redeploy si no hay un volumen persistente— la fila del pedido
+      sigue apuntando a un archivo que ya no existe.
+    """
+    pedido = _cargar_pedido_completo(db, pedido_id)
+    if pedido is None:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+
+    modelos_por_id = {item.modelo.id: item.modelo for item in pedido.items}
+    try:
+        pedido.comprobante_url = generar_comprobante(pedido, modelos_por_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("No se pudo regenerar el comprobante del pedido %s", pedido.codigo)
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo generar el comprobante. Probá de nuevo en un momento.",
+        )
+
+    return _cargar_pedido_completo(db, pedido_id)
+
+
 @router.patch("/{pedido_id}", response_model=schemas.PedidoDetalleOut)
 def editar_pedido(
     pedido_id: int, datos: schemas.PedidoUpdate, db: Session = Depends(get_db)

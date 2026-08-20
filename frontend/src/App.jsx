@@ -5,6 +5,7 @@ import Nav from "./components/Nav";
 import Login from "./pages/Login";
 import TomarPedido from "./pages/TomarPedido";
 import VerPedidos from "./pages/VerPedidos";
+import DetallePedido from "./pages/DetallePedido";
 import Modelos from "./pages/Modelos";
 import { borrarToken, haySesion } from "./utils/sesion";
 import "./App.css";
@@ -70,6 +71,14 @@ function Cuerpo() {
             element={
               <RutaProtegida>
                 <VerPedidos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/pedidos/:id"
+            element={
+              <RutaProtegida>
+                <DetallePedido />
               </RutaProtegida>
             }
           />

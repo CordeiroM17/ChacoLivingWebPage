@@ -81,14 +81,27 @@ export function CatalogoProvider({ children }) {
   }, [modelos]);
 
   // Reemplaza (o agrega) un modelo con la respuesta del POST/PATCH, sin volver a
-  // pedir la lista completa. Ordena por nombre, igual que GET /modelos.
+  // pedir la lista completa — y sin reordenar el resto.
+  //
+  // Antes esto volvía a ordenar todo el array con `localeCompare` en cada
+  // edición, para "igualar" el orden alfabético de GET /modelos. El problema:
+  // el collation de Postgres y el de `localeCompare` no siempre coinciden con
+  // acentos (ej. "Sillon" sin tilde vs. "Sillón" con tilde pueden quedar en
+  // posiciones distintas en cada uno), así que ese re-sort hacía que el
+  // catálogo entero saltara de orden con cualquier edición — hasta con solo
+  // desactivar un modelo, aunque su nombre no hubiera cambiado. Ahora se
+  // respeta el orden que ya trajo el backend: se reemplaza en su lugar, o se
+  // agrega al final si es nuevo. Un modelo recién creado puede no quedar en
+  // su posición alfabética exacta hasta la próxima recarga real del
+  // catálogo — mejor eso que mover todo lo demás por sorpresa.
   const aplicarModelo = useCallback((actualizado) => {
     hayDatos.current = true;
-    setModelos((prev) =>
-      [...prev.filter((m) => m.id !== actualizado.id), actualizado].sort((a, b) =>
-        a.nombre.localeCompare(b.nombre)
-      )
-    );
+    setModelos((prev) => {
+      const yaExiste = prev.some((m) => m.id === actualizado.id);
+      return yaExiste
+        ? prev.map((m) => (m.id === actualizado.id ? actualizado : m))
+        : [...prev, actualizado];
+    });
   }, []);
 
   const modelosActivos = useMemo(() => modelos.filter((m) => m.activo), [modelos]);

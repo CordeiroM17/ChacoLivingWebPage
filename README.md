@@ -10,9 +10,64 @@ MVP: tomar pedidos, verlos y administrar el catálogo de modelos. Ver `CLAUDE.md
 docker compose up -d db
 ```
 
-Esto levanta Postgres en `localhost:5432` y, la primera vez, corre automáticamente
-`sql/schema.sql` y `sql/seed.sql` (catálogo inicial de modelos). Si necesitás
-resetear la base desde cero: `docker compose down -v && docker compose up -d db`.
+Levanta Postgres en `localhost:5432`. Verificá que quedó lista antes de arrancar el
+backend — tarda unos segundos en aceptar conexiones:
+
+```bash
+docker compose ps          # STATUS tiene que decir "healthy", no solo "running"
+```
+
+**La primera vez** (y solo la primera), Postgres corre automáticamente
+`sql/schema.sql` y `sql/seed.sql`: crea las tablas, la extensión `pg_trgm`, los
+índices y el catálogo inicial de modelos.
+
+> **Esto es lo que más confunde:** esos dos scripts corren **una sola vez**, cuando
+> el volumen de datos está vacío. Si editás `sql/schema.sql`, un `docker compose
+> restart` **no** lo aplica — Postgres ni lo mira. Hay que borrar el volumen (ver
+> abajo). Es comportamiento de la imagen oficial de Postgres, no de este proyecto.
+
+#### Comandos del día a día
+
+```bash
+docker compose up -d db      # levantar
+docker compose ps            # ver estado y salud
+docker compose logs -f db    # ver los logs en vivo (Ctrl+C para salir)
+docker compose stop          # parar sin borrar nada
+docker compose start         # volver a arrancar lo que estaba parado
+```
+
+#### Reiniciar la base desde cero
+
+Borra **todos** los pedidos y modelos cargados, y vuelve a correr `schema.sql` +
+`seed.sql`. Es lo que hay que hacer después de tocar el esquema:
+
+```bash
+docker compose down -v       # el -v borra el volumen: acá se van los datos
+docker compose up -d db
+```
+
+Sin el `-v`, los datos sobreviven y el esquema **no** se actualiza.
+
+### 1b. Opcional: correr el backend también en Docker
+
+Para el día a día conviene el backend en el venv (paso 2): recarga sola al guardar un
+archivo. Pero antes de desplegar a Railway, vale correr **la misma imagen** que va a
+correr allá, para descubrir acá cualquier diferencia:
+
+```bash
+docker compose --profile completo up --build
+```
+
+Esto levanta base + backend, con las fotos y comprobantes en un volumen persistente
+(igual que en Railway) y tomando `JWT_SECRET_KEY`, `GOOGLE_CLIENT_ID` y
+`ADMIN_EMAILS` de tu `backend/.env`.
+
+> **Antes de usarlo, pará el uvicorn del venv.** Los dos escuchan en el 8000 y
+> Windows los deja convivir a medias: las peticiones caen en uno o en otro sin
+> criterio y aparecen errores 500 que no figuran en ningún log. Es uno **o** el
+> otro.
+
+Para bajarlo: `docker compose --profile completo down`.
 
 ### 2. Backend (FastAPI)
 
@@ -135,17 +190,78 @@ lo que ya funciona.
 
 ## Deploy
 
-Pensado para Railway (backend + Postgres) y Railway/Vercel (frontend).
+Backend + Postgres en **Railway**, frontend en **Vercel**. El orden importa: cada
+paso produce un dato que necesita el siguiente.
 
-Antes del primer deploy hace falta, como mínimo:
+### 1. Postgres en Railway
 
-1. Correr `sql/schema.sql` y `sql/seed.sql` a mano contra el Postgres de
-   Railway (el `docker-entrypoint-initdb.d` que los corre automático es una
-   función de la imagen de Postgres en local, no del Postgres administrado
-   de Railway).
-2. Configurar un volumen persistente en Railway y apuntar `UPLOADS_DIR` ahí.
-3. Cargar las variables de entorno del backend (`DATABASE_URL`,
-   `JWT_SECRET_KEY`, `GOOGLE_CLIENT_ID`, `ADMIN_EMAILS`, `CORS_ORIGINS`,
-   `UPLOADS_DIR`) y del frontend (`VITE_API_BASE`, `VITE_GOOGLE_CLIENT_ID`).
-4. Agregar la URL real del frontend como origen autorizado en las credenciales
-   OAuth de Google Cloud Console (arriba solo se cargó `localhost:5173`).
+Crear el servicio Postgres y **correr el esquema a mano, una vez**:
+
+```bash
+psql "<DATABASE_URL que da Railway>" -f sql/schema.sql
+psql "<DATABASE_URL que da Railway>" -f sql/seed.sql
+```
+
+> Esto no es opcional ni automático. El `docker-entrypoint-initdb.d` que corre
+> los scripts en local es una función de la imagen de Postgres, no del Postgres
+> administrado de Railway: allá la base arranca vacía. Correr `schema.sql`
+> **entero**, que además de las tablas crea la extensión `pg_trgm` y los índices
+> del buscador.
+
+### 2. Backend en Railway
+
+Railway detecta `backend/Dockerfile` solo. Hay que configurarle:
+
+- **Root Directory**: `backend` (es un monorepo; sin esto busca el Dockerfile en la raíz).
+- **Volumen persistente**, montado por ejemplo en `/datos/uploads`.
+
+Variables de entorno:
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | la que genera el Postgres de Railway |
+| `JWT_SECRET_KEY` | **una nueva**, distinta a la de desarrollo — `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `GOOGLE_CLIENT_ID` | el mismo de Google Cloud Console |
+| `ADMIN_EMAILS` | los emails autorizados, separados por coma |
+| `UPLOADS_DIR` | la ruta donde montaste el volumen (ej. `/datos/uploads`) |
+| `CORS_ORIGINS` | la URL de Vercel — se carga recién en el paso 4 |
+
+No hace falta setear `PORT`: Railway lo inyecta y el Dockerfile ya lo respeta.
+
+### 3. Frontend en Vercel
+
+- **Root Directory**: `frontend`.
+- Framework: Vite (lo detecta solo).
+
+Variables de entorno:
+
+| Variable | Valor |
+|---|---|
+| `VITE_API_BASE` | la URL pública del backend + `/api` |
+| `VITE_GOOGLE_CLIENT_ID` | el mismo Client ID |
+
+> Las dos se compilan **dentro** del bundle. Si las cargás después de un deploy,
+> hay que volver a desplegar para que tomen efecto — no alcanza con guardarlas.
+
+`frontend/vercel.json` ya trae el rewrite que necesita una SPA: sin él,
+entrar directo a `/pedidos/7` o refrescar en el detalle de un pedido daría 404,
+porque no existe ningún archivo en esa ruta.
+
+### 4. Cerrar el círculo
+
+Con la URL de Vercel ya existente:
+
+1. Cargar `CORS_ORIGINS` en Railway con esa URL y redesplegar el backend.
+2. Agregarla en Google Cloud Console → Credenciales → "Orígenes de JavaScript
+   autorizados". **Sin esto el botón de Google no funciona en producción**,
+   aunque todo lo demás esté bien: hoy solo está `http://localhost:5173`.
+
+### 5. Probar que el volumen quedó bien
+
+La prueba que importa: tomar un pedido real, confirmar que descarga el PDF,
+**hacer un redeploy** y volver a abrir ese pedido. Si el comprobante sigue
+disponible, el volumen está bien montado. Si dio 404, `UPLOADS_DIR` no está
+apuntando al volumen — y sin eso, cada redeploy borra todas las facturas.
+
+Si eso llegara a pasar, no se pierden: el detalle de cada pedido tiene un botón
+para generar el comprobante de nuevo (se reconstruye desde los datos guardados).

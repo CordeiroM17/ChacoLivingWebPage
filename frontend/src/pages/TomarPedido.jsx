@@ -255,298 +255,311 @@ export default function TomarPedido() {
       )}
 
       <form onSubmit={guardarPedido} className="formulario">
-        {paso === 0 && (
-          <section className="tarjeta">
-            <h2>Cliente</h2>
-            <label className="campo">
-              Nombre *
-              <input
-                type="text"
-                value={clienteNombre}
-                onChange={(e) => setClienteNombre(e.target.value)}
-                placeholder="Nombre del cliente"
-                required
-                autoFocus
-              />
-            </label>
-            <label className="campo">
-              Contacto / teléfono
-              <input
-                type="text"
-                value={clienteContacto}
-                onChange={(e) => setClienteContacto(e.target.value)}
-                placeholder="Opcional"
-              />
-            </label>
-            <div className="fila-2">
-              <label className="campo">
-                Fecha del pedido
-                <input
-                  type="date"
-                  value={fechaPedido}
-                  onChange={(e) => setFechaPedido(e.target.value)}
-                />
-              </label>
-              <label className="campo">
-                Entrega prometida
-                <input
-                  type="date"
-                  value={fechaPrometida}
-                  onChange={(e) => setFechaPrometida(e.target.value)}
-                />
-              </label>
-            </div>
-          </section>
-        )}
-
-        {paso === 1 && (
-          <section className="tarjeta">
-            <div className="item-pedido-header">
-              <h2 style={{ margin: 0 }}>Sillones</h2>
-              <span className="subtotal-parcial">{formatoMoneda(total)}</span>
-            </div>
-            {items.map((item, idx) => (
-              <div key={item.key} className="item-pedido">
-                <div className="item-pedido-header">
-                  <strong>Ítem {idx + 1}</strong>
-                  {items.length > 1 && (
-                    <button
-                      type="button"
-                      className="boton-texto"
-                      onClick={() => quitarItem(item.key)}
-                    >
-                      Quitar
-                    </button>
-                  )}
-                </div>
-
-                <label className="campo">
-                  Modelo *
-                  <select
-                    value={item.modelo_id}
-                    onChange={(e) => elegirModelo(item.key, e.target.value)}
-                    required
-                  >
-                    <option value="">Seleccionar modelo</option>
-                    {modelosActivos.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="campo">
-                  Tela
-                  <select
-                    value={item.tela}
-                    onChange={(e) => actualizarItem(item.key, { tela: e.target.value })}
-                  >
-                    <option value="">Seleccionar tela</option>
-                    {TELAS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    <option value="otra">Otra</option>
-                  </select>
-                </label>
-                {item.tela === "otra" && (
-                  <label className="campo">
-                    Especificar tela
-                    <input
-                      type="text"
-                      value={item.telaOtra}
-                      onChange={(e) => actualizarItem(item.key, { telaOtra: e.target.value })}
-                    />
-                  </label>
-                )}
-
-                <div className="fila-2">
-                  <label className="campo">
-                    Color
-                    <input
-                      type="text"
-                      value={item.color}
-                      onChange={(e) => actualizarItem(item.key, { color: e.target.value })}
-                    />
-                  </label>
-                  <label className="campo">
-                    Medidas
-                    <input
-                      type="text"
-                      value={item.medidas}
-                      onChange={(e) => actualizarItem(item.key, { medidas: e.target.value })}
-                    />
-                  </label>
-                </div>
-
-                <div className="fila-2">
-                  <label className="campo">
-                    Cantidad
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.cantidad}
-                      onChange={(e) => actualizarItem(item.key, { cantidad: e.target.value })}
-                    />
-                  </label>
-                  <label className="campo">
-                    Precio unitario
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.precio_unitario}
-                      onChange={(e) =>
-                        actualizarItem(item.key, { precio_unitario: e.target.value })
-                      }
-                    />
-                  </label>
-                </div>
-
-                <div className="subtotal">Subtotal: {formatoMoneda(subtotal(item))}</div>
-              </div>
-            ))}
-
-            <button type="button" className="boton-secundario" onClick={agregarItem}>
-              + Agregar sillón
-            </button>
-          </section>
-        )}
-
-        {paso === 2 && (
-          <>
-            <section className="tarjeta factura">
-              <div className="factura-encabezado">
-                <div className="factura-cliente">
-                  <span className="factura-etiqueta">Cliente</span>
-                  <strong>{clienteNombre}</strong>
-                  {clienteContacto && <span className="factura-contacto">{clienteContacto}</span>}
-                </div>
-                <div className="factura-fechas">
-                  <span>{formatoFecha(fechaPedido)}</span>
-                  {fechaPrometida && <span>Entrega: {formatoFecha(fechaPrometida)}</span>}
-                </div>
-              </div>
-
-              <div className="factura-items">
-                {items.map((item, idx) => {
-                  const modelo = modelos.find((m) => String(m.id) === String(item.modelo_id));
-                  const tela = item.tela === "otra" ? item.telaOtra : item.tela;
-                  const detalle = [tela, item.color, item.medidas].filter(Boolean).join(" · ");
-                  return (
-                    <div key={item.key} className="factura-fila">
-                      {modelo?.foto_url ? (
-                        <img
-                          className="factura-foto"
-                          src={fotoUrl(modelo.foto_url)}
-                          alt=""
-                        />
-                      ) : (
-                        <div className="factura-foto factura-foto-vacia" aria-hidden="true" />
-                      )}
-                      <div className="factura-item-info">
-                        <strong>{modelo?.nombre || `Ítem ${idx + 1}`}</strong>
-                        {detalle && <span>{detalle}</span>}
-                      </div>
-                      <div className="factura-item-precio">
-                        <span>
-                          {item.cantidad} × {formatoMoneda(item.precio_unitario)}
-                        </span>
-                        <strong>{formatoMoneda(subtotal(item))}</strong>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="factura-total">
-                <span>Total</span>
-                <strong>{formatoMoneda(total)}</strong>
-              </div>
-            </section>
-
+        {/* `key` distingue paso a paso, y además "confirmado" de "sin confirmar"
+            dentro del mismo paso 3: React remonta este bloque en cada cambio,
+            así que la entrada suave se repite exactamente donde importa —
+            avanzar un paso, o el momento en que el pedido queda guardado. */}
+        <div key={pedidoGuardado ? "guardado" : paso} className="vista-entra">
+          {paso === 0 && (
             <section className="tarjeta">
+              <h2>Cliente</h2>
               <label className="campo">
-                Notas / observaciones
-                <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={3} />
+                Nombre *
+                <input
+                  type="text"
+                  value={clienteNombre}
+                  onChange={(e) => setClienteNombre(e.target.value)}
+                  placeholder="Nombre del cliente"
+                  required
+                  autoFocus
+                />
               </label>
+              <label className="campo">
+                Contacto / teléfono
+                <input
+                  type="text"
+                  value={clienteContacto}
+                  onChange={(e) => setClienteContacto(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </label>
+              <div className="fila-2">
+                <label className="campo">
+                  Fecha del pedido
+                  <input
+                    type="date"
+                    value={fechaPedido}
+                    onChange={(e) => setFechaPedido(e.target.value)}
+                  />
+                </label>
+                <label className="campo">
+                  Entrega prometida
+                  <input
+                    type="date"
+                    value={fechaPrometida}
+                    onChange={(e) => setFechaPrometida(e.target.value)}
+                  />
+                </label>
+              </div>
             </section>
-          </>
-        )}
+          )}
 
-        {paso === 3 && !pedidoGuardado && (
-          <section className="tarjeta confirmacion-final">
-            <h2>Confirmar pedido</h2>
-            <p>
-              Vas a guardar el pedido de <strong>{clienteNombre}</strong> con{" "}
-              <strong>
-                {items.length} {items.length === 1 ? "ítem" : "ítems"}
-              </strong>{" "}
-              por un total de <strong>{formatoMoneda(total)}</strong>.
-            </p>
-            <p>Se va a generar el comprobante en PDF automáticamente al confirmar.</p>
-          </section>
-        )}
-
-        {paso === 3 && pedidoGuardado && (
-          <section className="tarjeta factura">
-            <div className="factura-encabezado">
-              <div className="factura-cliente">
-                <span className="factura-etiqueta">Comprobante</span>
-                <strong>{pedidoGuardado.codigo}</strong>
-                <span className="factura-contacto">{pedidoGuardado.cliente_nombre}</span>
+          {paso === 1 && (
+            <section className="tarjeta">
+              <div className="item-pedido-header">
+                <h2 style={{ margin: 0 }}>Sillones</h2>
+                <span className="subtotal-parcial">{formatoMoneda(total)}</span>
               </div>
-              <div className="factura-fechas">
-                <span>{formatoFecha(pedidoGuardado.fecha_pedido)}</span>
-                {pedidoGuardado.fecha_prometida && (
-                  <span>Entrega: {formatoFecha(pedidoGuardado.fecha_prometida)}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="factura-items">
-              {pedidoGuardado.items.map((item) => {
-                const detalle = [item.tela, item.color, item.medidas]
-                  .filter(Boolean)
-                  .join(" · ");
-                return (
-                  <div key={item.id} className="factura-fila">
-                    {item.modelo.foto_url ? (
-                      <img className="factura-foto" src={fotoUrl(item.modelo.foto_url)} alt="" />
-                    ) : (
-                      <div className="factura-foto factura-foto-vacia" aria-hidden="true" />
+              {items.map((item, idx) => (
+                <div key={item.key} className="item-pedido">
+                  <div className="item-pedido-header">
+                    <strong>Ítem {idx + 1}</strong>
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        className="boton-texto"
+                        onClick={() => quitarItem(item.key)}
+                      >
+                        Quitar
+                      </button>
                     )}
-                    <div className="factura-item-info">
-                      <strong>{item.modelo.nombre}</strong>
-                      {detalle && <span>{detalle}</span>}
-                    </div>
-                    <div className="factura-item-precio">
-                      <span>
-                        {item.cantidad} × {formatoMoneda(item.precio_unitario)}
-                      </span>
-                      <strong>{formatoMoneda(item.subtotal)}</strong>
-                    </div>
                   </div>
-                );
-              })}
-            </div>
 
-            <div className="factura-total">
-              <span>Total</span>
-              <strong>{formatoMoneda(pedidoGuardado.total)}</strong>
-            </div>
-          </section>
-        )}
+                  <label className="campo">
+                    Modelo *
+                    <select
+                      value={item.modelo_id}
+                      onChange={(e) => elegirModelo(item.key, e.target.value)}
+                      required
+                    >
+                      <option value="">Seleccionar modelo</option>
+                      {modelosActivos.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-        {paso === 3 && pedidoGuardado && !pedidoGuardado.comprobante_url && (
-          <Aviso
-            tipo="warn"
-            mensaje='El pedido se guardó, pero el comprobante no se pudo generar. Podés consultarlo más tarde desde "Ver pedidos".'
-          />
-        )}
+                  <label className="campo">
+                    Tela
+                    <select
+                      value={item.tela}
+                      onChange={(e) => actualizarItem(item.key, { tela: e.target.value })}
+                    >
+                      <option value="">Seleccionar tela</option>
+                      {TELAS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                      <option value="otra">Otra</option>
+                    </select>
+                  </label>
+                  {item.tela === "otra" && (
+                    <label className="campo">
+                      Especificar tela
+                      <input
+                        type="text"
+                        value={item.telaOtra}
+                        onChange={(e) => actualizarItem(item.key, { telaOtra: e.target.value })}
+                      />
+                    </label>
+                  )}
 
+                  <div className="fila-2">
+                    <label className="campo">
+                      Color
+                      <input
+                        type="text"
+                        value={item.color}
+                        onChange={(e) => actualizarItem(item.key, { color: e.target.value })}
+                      />
+                    </label>
+                    <label className="campo">
+                      Medidas
+                      <input
+                        type="text"
+                        value={item.medidas}
+                        onChange={(e) => actualizarItem(item.key, { medidas: e.target.value })}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="fila-2">
+                    <label className="campo">
+                      Cantidad
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.cantidad}
+                        onChange={(e) => actualizarItem(item.key, { cantidad: e.target.value })}
+                      />
+                    </label>
+                    <label className="campo">
+                      Precio unitario
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.precio_unitario}
+                        onChange={(e) =>
+                          actualizarItem(item.key, { precio_unitario: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="subtotal">Subtotal: {formatoMoneda(subtotal(item))}</div>
+                </div>
+              ))}
+
+              <button type="button" className="boton-secundario" onClick={agregarItem}>
+                + Agregar sillón
+              </button>
+            </section>
+          )}
+
+          {paso === 2 && (
+            <>
+              <h2>Confirmar</h2>
+              <section className="tarjeta factura">
+                <div className="factura-encabezado">
+                  <div className="factura-cliente">
+                    <span className="factura-etiqueta">Cliente</span>
+                    <strong>{clienteNombre}</strong>
+                    {clienteContacto && <span className="factura-contacto">{clienteContacto}</span>}
+                  </div>
+                  <div className="factura-fechas">
+                    <span>{formatoFecha(fechaPedido)}</span>
+                    {fechaPrometida && <span>Entrega: {formatoFecha(fechaPrometida)}</span>}
+                  </div>
+                </div>
+
+                <div className="factura-items">
+                  {items.map((item, idx) => {
+                    const modelo = modelos.find((m) => String(m.id) === String(item.modelo_id));
+                    const tela = item.tela === "otra" ? item.telaOtra : item.tela;
+                    const detalle = [tela, item.color, item.medidas].filter(Boolean).join(" · ");
+                    return (
+                      <div key={item.key} className="factura-fila">
+                        {modelo?.foto_url ? (
+                          <img
+                            className="factura-foto"
+                            src={fotoUrl(modelo.foto_url)}
+                            alt=""
+                          />
+                        ) : (
+                          <div className="factura-foto factura-foto-vacia" aria-hidden="true" />
+                        )}
+                        <div className="factura-item-info">
+                          <strong>{modelo?.nombre || `Ítem ${idx + 1}`}</strong>
+                          {detalle && <span>{detalle}</span>}
+                        </div>
+                        <div className="factura-item-precio">
+                          <span>
+                            {item.cantidad} × {formatoMoneda(item.precio_unitario)}
+                          </span>
+                          <strong>{formatoMoneda(subtotal(item))}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="factura-total">
+                  <span>Total</span>
+                  <strong>{formatoMoneda(total)}</strong>
+                </div>
+              </section>
+
+              <section className="tarjeta">
+                <label className="campo">
+                  Notas / observaciones
+                  <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={3} />
+                </label>
+              </section>
+            </>
+          )}
+
+          {paso === 3 && !pedidoGuardado && (
+            <section className="tarjeta confirmacion-final">
+              <h2>Confirmar pedido</h2>
+              <p>
+                Vas a guardar el pedido de <strong>{clienteNombre}</strong> con{" "}
+                <strong>
+                  {items.length} {items.length === 1 ? "ítem" : "ítems"}
+                </strong>{" "}
+                por un total de <strong>{formatoMoneda(total)}</strong>.
+              </p>
+              <p>Se va a generar el comprobante en PDF automáticamente al confirmar.</p>
+            </section>
+          )}
+
+          {paso === 3 && pedidoGuardado && (
+            <>
+              <h2>Factura</h2>
+              <section className="tarjeta factura">
+                <div className="factura-encabezado">
+                  <div className="factura-cliente">
+                    <span className="factura-etiqueta">Comprobante</span>
+                    <strong>{pedidoGuardado.codigo}</strong>
+                    <span className="factura-contacto">{pedidoGuardado.cliente_nombre}</span>
+                  </div>
+                  <div className="factura-fechas">
+                    <span>{formatoFecha(pedidoGuardado.fecha_pedido)}</span>
+                    {pedidoGuardado.fecha_prometida && (
+                      <span>Entrega: {formatoFecha(pedidoGuardado.fecha_prometida)}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="factura-items">
+                  {pedidoGuardado.items.map((item) => {
+                    const detalle = [item.tela, item.color, item.medidas]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div key={item.id} className="factura-fila">
+                        {item.modelo.foto_url ? (
+                          <img className="factura-foto" src={fotoUrl(item.modelo.foto_url)} alt="" />
+                        ) : (
+                          <div className="factura-foto factura-foto-vacia" aria-hidden="true" />
+                        )}
+                        <div className="factura-item-info">
+                          <strong>{item.modelo.nombre}</strong>
+                          {detalle && <span>{detalle}</span>}
+                        </div>
+                        <div className="factura-item-precio">
+                          <span>
+                            {item.cantidad} × {formatoMoneda(item.precio_unitario)}
+                          </span>
+                          <strong>{formatoMoneda(item.subtotal)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="factura-total">
+                  <span>Total</span>
+                  <strong>{formatoMoneda(pedidoGuardado.total)}</strong>
+                </div>
+              </section>
+            </>
+          )}
+
+          {paso === 3 && pedidoGuardado && !pedidoGuardado.comprobante_url && (
+            <Aviso
+              tipo="warn"
+              mensaje='El pedido se guardó, pero el comprobante no se pudo generar. Podés consultarlo más tarde desde "Ver pedidos".'
+            />
+          )}
+        </div>
+
+        {/* Los botones de navegación quedan fuera de la vista animada: son
+            chrome fijo, no contenido del paso — que no se muevan bajo el
+            dedo justo cuando se los va a tocar. */}
         <div className="fila-2">
           {paso === 3 && pedidoGuardado ? (
             <>

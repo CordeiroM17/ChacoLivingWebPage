@@ -266,6 +266,9 @@
   background: none;
   border: none;
   color: var(--accent-600);
+  /* También se usa en <Link> ("Volver a la lista"), no solo en <button> */
+  text-decoration: none;
+  display: inline-block;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -660,6 +663,32 @@
   }
 }
 
+/* Se usa en los dos únicos lugares donde entrar a una vista nueva significa
+   algo (avanzar un paso del asistente, abrir el detalle de un pedido) — no
+   en la navegación lateral entre Tomar pedido / Ver pedidos / Modelos, que
+   se mantiene instantánea a propósito.
+
+   La animación se declara solo bajo "no-preference", en vez de agregarla
+   siempre y después anularla con !important para quien pidió menos
+   movimiento: así, si el sistema pide reducir el movimiento, `.vista-entra`
+   directamente no tiene ninguna regla de animación que aplicar. */
+@media (prefers-reduced-motion: no-preference) {
+  .vista-entra {
+    animation: vista-entra 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes vista-entra {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 .aviso-exito {
   background: var(--estado-listo-bg);
   color: var(--estado-listo-fg);
@@ -696,6 +725,10 @@
   align-items: center;
   cursor: pointer;
   gap: 0.5rem;
+  /* Es un <Link>, no un <button>: sin esto hereda el subrayado y el azul
+     de enlace por defecto del navegador. */
+  color: inherit;
+  text-decoration: none;
   transition:
     background-color 150ms ease,
     box-shadow 150ms ease,
