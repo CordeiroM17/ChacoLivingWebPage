@@ -1,0 +1,83 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --ink-900: #14171a;
+  --ink-700: #3a4046;
+  --ink-500: #676f77;
+  --ink-400: #8b929a;
+  --ink-300: #b9bfc4;
+  --ink-200: #dde1e3;
+  --ink-100: #eef0f1;
+  --paper: #f5f6f6;
+  --white: #ffffff;
+
+  --accent-700: #253f34;
+  --accent-600: #37564a;
+  --accent-500: #3f6153;
+  --accent-100: #e3ebe7;
+
+  --estado-pendiente-bg: #faf0d7;
+  --estado-pendiente-fg: #7a5c14;
+  --estado-en_proceso-bg: #dbe7f6;
+  --estado-en_proceso-fg: #204b83;
+  --estado-listo-bg: #dcefe6;
+  --estado-listo-fg: #1c6b4f;
+  --estado-entregado-bg: var(--accent-100);
+  --estado-entregado-fg: var(--accent-700);
+  --estado-cancelado-bg: #f6dfd9;
+  --estado-cancelado-fg: #8a3820;
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 1.625rem;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  --shadow-card: 0 1px 2px rgba(20, 23, 26, 0.04), 0 6px 16px rgba(20, 23, 26, 0.05);
+
+  font: var(--text-base) / 1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+  background: var(--paper);
+  color: var(--ink-900);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+}
+
+h1 {
+  font-size: var(--text-xl);
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 0.9rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

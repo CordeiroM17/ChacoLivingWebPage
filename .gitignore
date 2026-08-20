@@ -1,0 +1,8 @@
+# Configuración local de Claude Code (permisos y skills de esta máquina,
+# no es parte del producto)
+.claude/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
