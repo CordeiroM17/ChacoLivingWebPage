@@ -290,6 +290,57 @@
   color: var(--accent-700);
 }
 
+/* Acción secundaria anclada arriba a la derecha de una tarjeta. El
+   padding-right de la tarjeta reserva su lugar para que el texto del
+   contenido nunca le pase por debajo. */
+.tarjeta-con-accion {
+  position: relative;
+  padding-right: 11rem;
+}
+
+.boton-esquina {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  background: var(--white);
+  color: var(--accent-700);
+  border: 1.5px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.boton-esquina:hover:not(:disabled) {
+  background: var(--accent-100);
+  border-color: var(--accent-600);
+}
+
+.boton-esquina:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* En pantallas angostas el botón pasa a ocupar su propia línea arriba del
+   contenido, en vez de encimarse con el nombre del cliente. */
+@media (max-width: 560px) {
+  .tarjeta-con-accion {
+    padding-right: 1.1rem;
+  }
+
+  .boton-esquina {
+    position: static;
+    display: block;
+    width: 100%;
+    margin-bottom: 0.9rem;
+  }
+}
+
 .pasos {
   display: flex;
   align-items: flex-start;

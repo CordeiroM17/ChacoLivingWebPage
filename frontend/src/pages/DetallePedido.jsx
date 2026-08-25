@@ -92,7 +92,23 @@ export default function DetallePedido() {
       <h1>{pedido.codigo}</h1>
       <Aviso tipo={aviso?.tipo} mensaje={aviso?.mensaje} />
 
-      <section className="tarjeta">
+      <section className="tarjeta tarjeta-con-accion">
+        {/* Arriba a la derecha y discreto: con el comprobante ya disponible
+            esto es la salida de emergencia (el archivo se perdió del disco),
+            no una acción que se busque a diario. Un pedido cancelado no la
+            ofrece: no tiene sentido regenerar un comprobante formal de algo
+            que no se concretó, aunque haya quedado uno de antes de cancelarlo. */}
+        {pedido.comprobante_url && pedido.estado !== "cancelado" && (
+          <button
+            type="button"
+            className="boton-esquina"
+            onClick={regenerarComprobante}
+            disabled={regenerando}
+          >
+            {regenerando ? "Generando…" : "Generar de nuevo"}
+          </button>
+        )}
+
         <p><strong>Cliente:</strong> {pedido.cliente_nombre}</p>
         <p><strong>Contacto:</strong> {pedido.cliente_contacto}</p>
         <p><strong>Dirección de envío:</strong> {pedido.cliente_direccion}</p>
@@ -105,37 +121,20 @@ export default function DetallePedido() {
         {pedido.notas && <p><strong>Notas:</strong> {pedido.notas}</p>}
 
         {pedido.comprobante_url ? (
-          <>
-            <div className="fila-2">
-              <a
-                className="boton-secundario"
-                href={fotoUrl(pedido.comprobante_url)}
-                target="_blank"
-                rel="noreferrer"
-                style={{ textAlign: "center" }}
-              >
-                Ver comprobante
-              </a>
-              <button type="button" className="boton-secundario" onClick={descargarComprobante}>
-                Descargar
-              </button>
-            </div>
-            {/* Discreto a propósito: con el comprobante ya disponible, esto es
-                la salida de emergencia (el archivo se perdió del disco), no una
-                acción que se busque a diario. Un pedido cancelado no la ofrece:
-                no tiene sentido generar un comprobante formal para algo que no
-                se concretó, aunque haya quedado uno de antes de cancelarlo. */}
-            {pedido.estado !== "cancelado" && (
-              <button
-                type="button"
-                className="boton-texto"
-                onClick={regenerarComprobante}
-                disabled={regenerando}
-              >
-                {regenerando ? "Generando..." : "Generar de nuevo"}
-              </button>
-            )}
-          </>
+          <div className="fila-2">
+            <a
+              className="boton-secundario"
+              href={fotoUrl(pedido.comprobante_url)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textAlign: "center" }}
+            >
+              Ver comprobante
+            </a>
+            <button type="button" className="boton-secundario" onClick={descargarComprobante}>
+              Descargar
+            </button>
+          </div>
         ) : pedido.estado === "cancelado" ? (
           <p className="nota-sutil">Los pedidos cancelados no generan comprobante.</p>
         ) : (
