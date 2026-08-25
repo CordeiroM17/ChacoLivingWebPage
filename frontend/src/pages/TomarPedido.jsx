@@ -10,7 +10,8 @@ import {
   validarPasoCliente,
   validarPasoItems,
 } from "../schemas/pedido.js";
-import { formatoMoneda, formatoFecha, TELAS } from "../utils/format";
+import { formatoMoneda, formatoFecha, formatoMedidasItem, TELAS } from "../utils/format";
+import { TIPOS_FACTURA_VALIDOS } from "../schemas/limites.js";
 import Aviso from "../components/Aviso";
 
 const PASOS = ["Cliente", "Sillones", "Confirmar", "Factura"];
@@ -23,14 +24,55 @@ function nuevoItem() {
     tela: "",
     telaOtra: "",
     color: "",
-    medidas: "",
+    anchoM: "",
+    alturaM: "",
+    profundidadM: "",
     cantidad: "1",
     precio_unitario: "",
   };
 }
 
+// El modelo guarda sus medidas de fábrica en cm; el ítem del pedido las
+// trabaja en metros de punta a punta. Esta es la única cuenta que cruza esa
+// frontera, y es solo para sugerir un valor inicial: el campo queda igual de
+// editable que si se hubiera cargado a mano.
+function valorInicialEnMetros(cm) {
+  return String(Number(cm) / 100);
+}
+
 function hoyISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Todo lo que no son ítems viaja junto en un solo objeto. Antes cada campo era
+// un `useState` aparte, y sumar uno obligaba a acordarse de cinco lugares
+// (estado, guardado del borrador, sus dependencias, limpiar el formulario y el
+// DTO); olvidarse de uno hacía que el borrador perdiera ese dato en silencio.
+// Con la cabecera junta, agregar un campo acá alcanza: el resto lo recorre por
+// claves.
+function cabeceraVacia() {
+  return {
+    clienteNombre: "",
+    clienteContacto: "",
+    clienteDireccion: "",
+    clienteTipoFactura: "",
+    clienteEmail: "",
+    fechaPedido: hoyISO(),
+    fechaPrometida: "",
+    notas: "",
+  };
+}
+
+function cabeceraDesdeBorrador(borrador) {
+  const cabecera = cabeceraVacia();
+  if (!borrador) return cabecera;
+  // Solo las claves que la cabecera declara: si el borrador quedó de una
+  // versión con otros campos, los de más se ignoran y los que falten se
+  // quedan con su valor por defecto (la fecha, con la de hoy).
+  for (const clave of Object.keys(cabecera)) {
+    if (borrador[clave]) cabecera[clave] = borrador[clave];
+  }
+  return cabecera;
 }
 
 // El borrador de localStorage pasa por su esquema antes de entrar al estado:
@@ -43,19 +85,19 @@ function cargarBorrador() {
   }
 }
 
-const borradorInicial = cargarBorrador();
-
 export default function TomarPedido() {
   // El catálogo viene del contexto compartido: ya está en memoria desde que se
   // abrió la app, así que esta pantalla no dispara ninguna petición al entrar.
   const { modelos, modelosActivos, cargando: cargandoCatalogo, error: errorCatalogo } =
     useCatalogo();
+
+  // Con inicializador perezoso: se relee de localStorage en cada montaje, no
+  // una sola vez al cargar el módulo. Sin esto, ir a otra sección de la app
+  // (por ejemplo Catálogos) y volver perdía lo que ya se había guardado del
+  // borrador, porque el componente se remonta pero el módulo no se reevalúa.
+  const [borradorInicial] = useState(cargarBorrador);
   const [paso, setPaso] = useState(borradorInicial?.paso ?? 0);
-  const [clienteNombre, setClienteNombre] = useState(borradorInicial?.clienteNombre ?? "");
-  const [clienteContacto, setClienteContacto] = useState(borradorInicial?.clienteContacto ?? "");
-  const [fechaPedido, setFechaPedido] = useState(borradorInicial?.fechaPedido ?? hoyISO());
-  const [fechaPrometida, setFechaPrometida] = useState(borradorInicial?.fechaPrometida ?? "");
-  const [notas, setNotas] = useState(borradorInicial?.notas ?? "");
+  const [cabecera, setCabecera] = useState(() => cabeceraDesdeBorrador(borradorInicial));
   const [items, setItems] = useState(
     borradorInicial?.items?.length ? borradorInicial.items : [nuevoItem()]
   );
@@ -94,19 +136,17 @@ export default function TomarPedido() {
     setPaso((p) => Math.min(p, 1));
   }, [pedidoGuardado, cargandoCatalogo, modelosActivos, items]);
 
+  // La cabecera se guarda desarmada (plana) para no cambiar el formato del
+  // borrador que ya vive en los navegadores: lo que cambió es de dónde sale,
+  // no cómo se guarda.
   useEffect(() => {
     if (pedidoGuardado) return;
-    const borrador = {
-      paso,
-      clienteNombre,
-      clienteContacto,
-      fechaPedido,
-      fechaPrometida,
-      notas,
-      items,
-    };
-    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
-  }, [paso, clienteNombre, clienteContacto, fechaPedido, fechaPrometida, notas, items, pedidoGuardado]);
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify({ paso, ...cabecera, items }));
+  }, [paso, cabecera, items, pedidoGuardado]);
+
+  function actualizarCabecera(cambios) {
+    setCabecera((prev) => ({ ...prev, ...cambios }));
+  }
 
   function actualizarItem(key, cambios) {
     setItems((prev) =>
@@ -119,6 +159,11 @@ export default function TomarPedido() {
     actualizarItem(key, {
       modelo_id: modeloId,
       precio_unitario: modelo ? String(modelo.precio_base) : "",
+      // Las medidas del modelo son el punto de partida; quedan editables por
+      // si este pedido puntual necesita otra cosa.
+      anchoM: modelo ? valorInicialEnMetros(modelo.ancho_cm) : "",
+      alturaM: modelo ? valorInicialEnMetros(modelo.altura_cm) : "",
+      profundidadM: modelo ? valorInicialEnMetros(modelo.profundidad_cm) : "",
     });
   }
 
@@ -141,11 +186,7 @@ export default function TomarPedido() {
   function limpiarFormulario() {
     localStorage.removeItem(BORRADOR_KEY);
     setPaso(0);
-    setClienteNombre("");
-    setClienteContacto("");
-    setFechaPedido(hoyISO());
-    setFechaPrometida("");
-    setNotas("");
+    setCabecera(cabeceraVacia());
     setItems([nuevoItem()]);
     setPedidoGuardado(null);
     setAviso(null);
@@ -156,7 +197,7 @@ export default function TomarPedido() {
     // error aparece donde se cargó el dato y no recién al confirmar.
     const revision =
       paso === 0
-        ? validarPasoCliente({ clienteNombre, clienteContacto, fechaPedido, fechaPrometida })
+        ? validarPasoCliente(cabecera)
         : paso === 1
           ? validarPasoItems(items)
           : null;
@@ -185,14 +226,7 @@ export default function TomarPedido() {
     // Un solo lugar arma y valida el cuerpo de la petición: el DTO convierte los
     // strings del formulario, descarta lo que es solo de la UI (`key`, `telaOtra`)
     // y aplica los mismos límites que el backend.
-    const dto = construirPedidoDto({
-      clienteNombre,
-      clienteContacto,
-      fechaPedido,
-      fechaPrometida,
-      notas,
-      items,
-    });
+    const dto = construirPedidoDto({ ...cabecera, items });
 
     if (!dto.success) {
       setAviso({ tipo: "error", mensaje: primerMensaje(dto.error) });
@@ -267,37 +301,73 @@ export default function TomarPedido() {
                 Nombre *
                 <input
                   type="text"
-                  value={clienteNombre}
-                  onChange={(e) => setClienteNombre(e.target.value)}
+                  value={cabecera.clienteNombre}
+                  onChange={(e) => actualizarCabecera({ clienteNombre: e.target.value })}
                   placeholder="Nombre del cliente"
                   required
-                  autoFocus
                 />
               </label>
               <label className="campo">
-                Contacto / teléfono
+                Contacto / teléfono *
                 <input
                   type="text"
-                  value={clienteContacto}
-                  onChange={(e) => setClienteContacto(e.target.value)}
-                  placeholder="Opcional"
+                  value={cabecera.clienteContacto}
+                  onChange={(e) => actualizarCabecera({ clienteContacto: e.target.value })}
+                  required
+                />
+              </label>
+              <label className="campo">
+                Dirección de envío *
+                <input
+                  type="text"
+                  value={cabecera.clienteDireccion}
+                  onChange={(e) => actualizarCabecera({ clienteDireccion: e.target.value })}
+                  required
                 />
               </label>
               <div className="fila-2">
                 <label className="campo">
-                  Fecha del pedido
+                  Tipo de factura *
+                  <select
+                    value={cabecera.clienteTipoFactura}
+                    onChange={(e) => actualizarCabecera({ clienteTipoFactura: e.target.value })}
+                    required
+                  >
+                    <option value="">Seleccionar</option>
+                    {TIPOS_FACTURA_VALIDOS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="campo">
+                  Correo electrónico
+                  <input
+                    type="email"
+                    value={cabecera.clienteEmail}
+                    onChange={(e) => actualizarCabecera({ clienteEmail: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </label>
+              </div>
+              <div className="fila-2">
+                <label className="campo">
+                  Fecha del pedido *
                   <input
                     type="date"
-                    value={fechaPedido}
-                    onChange={(e) => setFechaPedido(e.target.value)}
+                    value={cabecera.fechaPedido}
+                    onChange={(e) => actualizarCabecera({ fechaPedido: e.target.value })}
+                    required
                   />
                 </label>
                 <label className="campo">
-                  Entrega prometida
+                  Entrega prometida *
                   <input
                     type="date"
-                    value={fechaPrometida}
-                    onChange={(e) => setFechaPrometida(e.target.value)}
+                    value={cabecera.fechaPrometida}
+                    onChange={(e) => actualizarCabecera({ fechaPrometida: e.target.value })}
+                    required
                   />
                 </label>
               </div>
@@ -342,10 +412,11 @@ export default function TomarPedido() {
                   </label>
 
                   <label className="campo">
-                    Tela
+                    Tela *
                     <select
                       value={item.tela}
                       onChange={(e) => actualizarItem(item.key, { tela: e.target.value })}
+                      required
                     >
                       <option value="">Seleccionar tela</option>
                       {TELAS.map((t) => (
@@ -358,46 +429,80 @@ export default function TomarPedido() {
                   </label>
                   {item.tela === "otra" && (
                     <label className="campo">
-                      Especificar tela
+                      Especificar tela *
                       <input
                         type="text"
                         value={item.telaOtra}
                         onChange={(e) => actualizarItem(item.key, { telaOtra: e.target.value })}
+                        required
                       />
                     </label>
                   )}
 
-                  <div className="fila-2">
+                  <label className="campo">
+                    Color *
+                    <input
+                      type="text"
+                      value={item.color}
+                      onChange={(e) => actualizarItem(item.key, { color: e.target.value })}
+                      required
+                    />
+                  </label>
+
+                  <div className="fila-3">
                     <label className="campo">
-                      Color
+                      Ancho (m) *
                       <input
-                        type="text"
-                        value={item.color}
-                        onChange={(e) => actualizarItem(item.key, { color: e.target.value })}
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.anchoM}
+                        onChange={(e) => actualizarItem(item.key, { anchoM: e.target.value })}
+                        placeholder="0.80"
+                        required
                       />
                     </label>
                     <label className="campo">
-                      Medidas
+                      Alto (m) *
                       <input
-                        type="text"
-                        value={item.medidas}
-                        onChange={(e) => actualizarItem(item.key, { medidas: e.target.value })}
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.alturaM}
+                        onChange={(e) => actualizarItem(item.key, { alturaM: e.target.value })}
+                        placeholder="0.90"
+                        required
+                      />
+                    </label>
+                    <label className="campo">
+                      Profundidad (m) *
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.profundidadM}
+                        onChange={(e) =>
+                          actualizarItem(item.key, { profundidadM: e.target.value })
+                        }
+                        placeholder="0.85"
+                        required
                       />
                     </label>
                   </div>
 
                   <div className="fila-2">
                     <label className="campo">
-                      Cantidad
+                      Cantidad *
                       <input
                         type="number"
                         min="1"
                         value={item.cantidad}
                         onChange={(e) => actualizarItem(item.key, { cantidad: e.target.value })}
+                        required
                       />
                     </label>
                     <label className="campo">
-                      Precio unitario
+                      Precio unitario *
                       <input
                         type="number"
                         min="0"
@@ -406,6 +511,7 @@ export default function TomarPedido() {
                         onChange={(e) =>
                           actualizarItem(item.key, { precio_unitario: e.target.value })
                         }
+                        required
                       />
                     </label>
                   </div>
@@ -427,12 +533,17 @@ export default function TomarPedido() {
                 <div className="factura-encabezado">
                   <div className="factura-cliente">
                     <span className="factura-etiqueta">Cliente</span>
-                    <strong>{clienteNombre}</strong>
-                    {clienteContacto && <span className="factura-contacto">{clienteContacto}</span>}
+                    <strong>{cabecera.clienteNombre}</strong>
+                    <span className="factura-contacto">{cabecera.clienteContacto}</span>
+                    <span className="factura-contacto">{cabecera.clienteDireccion}</span>
+                    {cabecera.clienteEmail && (
+                      <span className="factura-contacto">{cabecera.clienteEmail}</span>
+                    )}
                   </div>
                   <div className="factura-fechas">
-                    <span>{formatoFecha(fechaPedido)}</span>
-                    {fechaPrometida && <span>Entrega: {formatoFecha(fechaPrometida)}</span>}
+                    <span>Factura {cabecera.clienteTipoFactura}</span>
+                    <span>{formatoFecha(cabecera.fechaPedido)}</span>
+                    <span>Entrega: {formatoFecha(cabecera.fechaPrometida)}</span>
                   </div>
                 </div>
 
@@ -440,7 +551,12 @@ export default function TomarPedido() {
                   {items.map((item, idx) => {
                     const modelo = modelos.find((m) => String(m.id) === String(item.modelo_id));
                     const tela = item.tela === "otra" ? item.telaOtra : item.tela;
-                    const detalle = [tela, item.color, item.medidas].filter(Boolean).join(" · ");
+                    const medidas = formatoMedidasItem({
+                      ancho_m: item.anchoM,
+                      altura_m: item.alturaM,
+                      profundidad_m: item.profundidadM,
+                    });
+                    const detalle = [tela, item.color, medidas].filter(Boolean).join(" · ");
                     return (
                       <div key={item.key} className="factura-fila">
                         {modelo?.foto_url ? (
@@ -476,7 +592,11 @@ export default function TomarPedido() {
               <section className="tarjeta">
                 <label className="campo">
                   Notas / observaciones
-                  <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={3} />
+                  <textarea
+                    value={cabecera.notas}
+                    onChange={(e) => actualizarCabecera({ notas: e.target.value })}
+                    rows={3}
+                  />
                 </label>
               </section>
             </>
@@ -486,7 +606,7 @@ export default function TomarPedido() {
             <section className="tarjeta confirmacion-final">
               <h2>Confirmar pedido</h2>
               <p>
-                Vas a guardar el pedido de <strong>{clienteNombre}</strong> con{" "}
+                Vas a guardar el pedido de <strong>{cabecera.clienteNombre}</strong> con{" "}
                 <strong>
                   {items.length} {items.length === 1 ? "ítem" : "ítems"}
                 </strong>{" "}
@@ -505,18 +625,22 @@ export default function TomarPedido() {
                     <span className="factura-etiqueta">Comprobante</span>
                     <strong>{pedidoGuardado.codigo}</strong>
                     <span className="factura-contacto">{pedidoGuardado.cliente_nombre}</span>
+                    <span className="factura-contacto">{pedidoGuardado.cliente_contacto}</span>
+                    <span className="factura-contacto">{pedidoGuardado.cliente_direccion}</span>
+                    {pedidoGuardado.cliente_email && (
+                      <span className="factura-contacto">{pedidoGuardado.cliente_email}</span>
+                    )}
                   </div>
                   <div className="factura-fechas">
+                    <span>Factura {pedidoGuardado.cliente_tipo_factura}</span>
                     <span>{formatoFecha(pedidoGuardado.fecha_pedido)}</span>
-                    {pedidoGuardado.fecha_prometida && (
-                      <span>Entrega: {formatoFecha(pedidoGuardado.fecha_prometida)}</span>
-                    )}
+                    <span>Entrega: {formatoFecha(pedidoGuardado.fecha_prometida)}</span>
                   </div>
                 </div>
 
                 <div className="factura-items">
                   {pedidoGuardado.items.map((item) => {
-                    const detalle = [item.tela, item.color, item.medidas]
+                    const detalle = [item.tela, item.color, formatoMedidasItem(item)]
                       .filter(Boolean)
                       .join(" · ");
                     return (

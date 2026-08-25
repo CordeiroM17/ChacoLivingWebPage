@@ -4,11 +4,19 @@ import { fotosApi, fotoUrl } from "../api/fotos";
 import { useCatalogo } from "../context/catalogo.js";
 import { primerMensaje } from "../schemas/comunes.js";
 import { construirModeloDto, modeloActivoDtoSchema } from "../schemas/modelo.js";
-import { formatoMoneda } from "../utils/format";
+import { formatoMoneda, formatoMedidas } from "../utils/format";
 import Aviso from "../components/Aviso";
 
 function formularioVacio() {
-  return { nombre: "", descripcion: "", precio_base: "", foto_url: "" };
+  return {
+    nombre: "",
+    descripcion: "",
+    precio_base: "",
+    profundidad_cm: "",
+    altura_cm: "",
+    ancho_cm: "",
+    foto_url: "",
+  };
 }
 
 export default function Modelos() {
@@ -32,6 +40,9 @@ export default function Modelos() {
       nombre: modelo.nombre,
       descripcion: modelo.descripcion || "",
       precio_base: String(modelo.precio_base),
+      profundidad_cm: String(modelo.profundidad_cm),
+      altura_cm: String(modelo.altura_cm),
+      ancho_cm: String(modelo.ancho_cm),
       foto_url: modelo.foto_url || "",
     });
   }
@@ -88,6 +99,8 @@ export default function Modelos() {
   }
 
   async function alternarActivo(modelo) {
+    const accion = modelo.activo ? "desactivar" : "activar";
+    if (!window.confirm(`¿Seguro que querés ${accion} "${modelo.nombre}"?`)) return;
     try {
       const actualizado = await modelosApi.editar(
         modelo.id,
@@ -135,6 +148,42 @@ export default function Modelos() {
               required
             />
           </label>
+
+          <div className="fila-3">
+            <label className="campo">
+              Ancho (cm) *
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.ancho_cm}
+                onChange={(e) => setForm({ ...form, ancho_cm: e.target.value })}
+                required
+              />
+            </label>
+            <label className="campo">
+              Altura (cm) *
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.altura_cm}
+                onChange={(e) => setForm({ ...form, altura_cm: e.target.value })}
+                required
+              />
+            </label>
+            <label className="campo">
+              Profundidad (cm) *
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.profundidad_cm}
+                onChange={(e) => setForm({ ...form, profundidad_cm: e.target.value })}
+                required
+              />
+            </label>
+          </div>
 
           <div className="campo campo-fotos">
             <div className="fotos-encabezado">
@@ -189,6 +238,7 @@ export default function Modelos() {
           <div className="lista-encabezado">
             <span>Modelo</span>
             <span>Precio</span>
+            <span>Medidas (A×Al×P)</span>
             <span>Estado</span>
             <span>Acciones</span>
           </div>
@@ -205,6 +255,7 @@ export default function Modelos() {
                     <strong>{m.nombre}</strong>
                   </div>
                   <div>{formatoMoneda(m.precio_base)}</div>
+                  <div>{formatoMedidas(m)}</div>
                   <span className={`estado ${m.activo ? "estado-entregado" : "estado-cancelado"}`}>
                     {m.activo ? "Activo" : "Inactivo"}
                   </span>

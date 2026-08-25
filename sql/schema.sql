@@ -10,8 +10,19 @@ CREATE TABLE modelos (
     nombre TEXT NOT NULL,
     descripcion TEXT,
     precio_base NUMERIC(12,2) NOT NULL,
+    profundidad_cm NUMERIC(6,1) NOT NULL CHECK (profundidad_cm > 0),
+    altura_cm NUMERIC(6,1) NOT NULL CHECK (altura_cm > 0),
+    ancho_cm NUMERIC(6,1) NOT NULL CHECK (ancho_cm > 0),
     foto_url TEXT,
     activo BOOLEAN NOT NULL DEFAULT true,
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE catalogos (
+    id SERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    portada_url TEXT NOT NULL,
+    total_paginas INT NOT NULL,
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -19,9 +30,12 @@ CREATE TABLE pedidos (
     id SERIAL PRIMARY KEY,
     codigo TEXT UNIQUE NOT NULL,
     cliente_nombre TEXT NOT NULL,
-    cliente_contacto TEXT,
+    cliente_contacto TEXT NOT NULL,
+    cliente_direccion TEXT NOT NULL,
+    cliente_tipo_factura TEXT NOT NULL CHECK (cliente_tipo_factura IN ('A','B','C')),
+    cliente_email TEXT,
     fecha_pedido DATE NOT NULL DEFAULT CURRENT_DATE,
-    fecha_prometida DATE,
+    fecha_prometida DATE NOT NULL,
     estado TEXT NOT NULL DEFAULT 'pendiente'
         CHECK (estado IN ('pendiente','en_proceso','listo','entregado','cancelado')),
     total NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -37,7 +51,9 @@ CREATE TABLE pedido_items (
     cantidad INT NOT NULL DEFAULT 1,
     tela TEXT,
     color TEXT,
-    medidas TEXT,
+    ancho_m NUMERIC(4,2),
+    altura_m NUMERIC(4,2),
+    profundidad_m NUMERIC(4,2),
     precio_unitario NUMERIC(12,2) NOT NULL,
     subtotal NUMERIC(12,2) NOT NULL
 );

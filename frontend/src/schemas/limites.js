@@ -16,6 +16,14 @@ export const MAX_NOTAS = 2000;
 export const MAX_DESCRIPCION = 1000;
 export const MAX_TEXTO_ITEM = 100; // tela, color, medidas
 export const MAX_FOTO_URL = 300;
+export const MAX_NOMBRE_CATALOGO = 200;
+export const TAMANO_MAXIMO_PDF = 60 * 1024 * 1024; // 60MB, espejado del backend
+export const MAX_DIRECCION = 300;
+export const MAX_EMAIL = 200;
+export const MAX_MEDIDA_CM = 500; // ningún sillón de fábrica llega a 5 metros de lado
+export const MAX_MEDIDA_M = 5; // mismo tope que MAX_MEDIDA_CM, en la unidad del input
+
+export const TIPOS_FACTURA_VALIDOS = ["A", "B", "C"];
 
 // Misma forma que devuelve POST /api/fotos.
 export const PATRON_FOTO = /^\/uploads\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp|gif)$/i;

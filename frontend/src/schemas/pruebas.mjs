@@ -6,6 +6,7 @@
 // verifiquen antes de entrar a la app.
 
 import { parsearBorrador } from "./borrador.js";
+import { construirCatalogoDto, listaCatalogosSchema, paginaUrl } from "./catalogo.js";
 import { primerMensaje, validarRespuesta } from "./comunes.js";
 import { construirModeloDto } from "./modelo.js";
 import {
@@ -46,9 +47,12 @@ function rechaza(resultado, fragmentoEsperado) {
 // Un borrador tal como lo deja la pantalla: todo string, con campos de UI.
 const borradorTipico = {
   clienteNombre: "  Juan Pérez  ",
-  clienteContacto: "",
+  clienteContacto: "  11-5555-4444  ",
+  clienteDireccion: "  Av. Siempre Viva 742  ",
+  clienteTipoFactura: "B",
+  clienteEmail: "",
   fechaPedido: "2026-08-19",
-  fechaPrometida: "",
+  fechaPrometida: "2026-08-25",
   notas: "  ",
   items: [
     {
@@ -57,7 +61,9 @@ const borradorTipico = {
       tela: "chenille",
       telaOtra: "",
       color: " gris ",
-      medidas: "",
+      anchoM: " 1.5 ",
+      alturaM: "0.95",
+      profundidadM: "0.9",
       cantidad: "2",
       precio_unitario: "290000",
     },
@@ -76,9 +82,12 @@ caso("convierte strings a números y limpia espacios", () => {
   if (!r.success) throw new Error(primerMensaje(r.error));
   igual(r.data, {
     cliente_nombre: "Juan Pérez",
-    cliente_contacto: null,
+    cliente_contacto: "11-5555-4444",
+    cliente_direccion: "Av. Siempre Viva 742",
+    cliente_tipo_factura: "B",
+    cliente_email: null,
     fecha_pedido: "2026-08-19",
-    fecha_prometida: null,
+    fecha_prometida: "2026-08-25",
     notas: null,
     items: [
       {
@@ -86,7 +95,9 @@ caso("convierte strings a números y limpia espacios", () => {
         cantidad: 2,
         tela: "chenille",
         color: "gris",
-        medidas: null,
+        ancho_m: 1.5,
+        altura_m: 0.95,
+        profundidad_m: 0.9,
         precio_unitario: 290000,
       },
     ],
@@ -96,7 +107,11 @@ caso("convierte strings a números y limpia espacios", () => {
 caso("descarta los campos que son solo de la UI (key, telaOtra)", () => {
   const r = construirPedidoDto(borradorTipico);
   const claves = Object.keys(r.data.items[0]).sort();
-  igual(claves, ["cantidad", "color", "medidas", "modelo_id", "precio_unitario", "tela"], "sobran o faltan claves");
+  igual(
+    claves,
+    ["altura_m", "ancho_m", "cantidad", "color", "modelo_id", "precio_unitario", "profundidad_m", "tela"],
+    "sobran o faltan claves"
+  );
 });
 
 caso('resuelve tela "otra" con el texto libre', () => {
@@ -142,6 +157,33 @@ caso("cantidad absurda", () =>
 caso("sin modelo elegido", () =>
   rechaza(construirPedidoDto(conItem({ modelo_id: "" })), "El modelo"));
 
+caso("sin tela elegida", () =>
+  rechaza(construirPedidoDto(conItem({ tela: "" })), "La tela"));
+
+caso('tela "otra" sin especificar', () =>
+  rechaza(construirPedidoDto(conItem({ tela: "otra", telaOtra: "" })), "La tela"));
+
+caso("color vacío", () =>
+  rechaza(construirPedidoDto(conItem({ color: "" })), "El color"));
+
+caso("ancho vacío", () =>
+  rechaza(construirPedidoDto(conItem({ anchoM: "" })), "El ancho"));
+
+caso("alto en 0", () =>
+  rechaza(construirPedidoDto(conItem({ alturaM: "0" })), "La altura"));
+
+caso("profundidad no numérica", () =>
+  rechaza(construirPedidoDto(conItem({ profundidadM: "grande" })), "La profundidad"));
+
+caso("ancho sobre el tope de 5 metros", () =>
+  rechaza(construirPedidoDto(conItem({ anchoM: "6" })), "no puede superar"));
+
+caso("el ancho queda en metros, sin convertir", () => {
+  const r = construirPedidoDto(conItem({ anchoM: "1.25" }));
+  if (!r.success) throw new Error(primerMensaje(r.error));
+  igual(r.data.items[0].ancho_m, 1.25, "no debería convertir metros a otra unidad");
+});
+
 caso("nombre de cliente vacío", () =>
   rechaza(construirPedidoDto({ ...borradorTipico, clienteNombre: "   " }), "El nombre del cliente"));
 
@@ -164,37 +206,77 @@ caso("entrega prometida anterior al pedido", () =>
   rechaza(
     validarPasoCliente({
       clienteNombre: "Juan",
-      clienteContacto: "",
+      clienteContacto: "11-5555-4444",
+      clienteDireccion: "Calle Falsa 123",
+      clienteTipoFactura: "A",
+      clienteEmail: "",
       fechaPedido: "2026-08-19",
       fechaPrometida: "2026-08-01",
     }),
     "anterior a la fecha del pedido"
   ));
 
+caso("contacto vacío", () =>
+  rechaza(construirPedidoDto({ ...borradorTipico, clienteContacto: "" }), "El contacto"));
+
+caso("dirección de envío vacía", () =>
+  rechaza(construirPedidoDto({ ...borradorTipico, clienteDireccion: "" }), "La dirección"));
+
+caso("tipo de factura inválido", () =>
+  rechaza(construirPedidoDto({ ...borradorTipico, clienteTipoFactura: "Z" }), "tipo de factura"));
+
+caso("correo electrónico mal formado", () =>
+  rechaza(construirPedidoDto({ ...borradorTipico, clienteEmail: "no-es-un-correo" }), "correo"));
+
+caso("acepta un correo electrónico válido", () => {
+  const r = construirPedidoDto({ ...borradorTipico, clienteEmail: "juan@ejemplo.com" });
+  if (!r.success) throw new Error(primerMensaje(r.error));
+  igual(r.data.cliente_email, "juan@ejemplo.com", "no conservó el correo");
+});
+
 console.log("\n=== C. DTO de modelo ===");
 
+const modeloTipico = {
+  nombre: "  Sillón Milán  ",
+  descripcion: "",
+  precio_base: "180000.50",
+  ancho_cm: "80",
+  altura_cm: "90",
+  profundidad_cm: "85",
+  foto_url: "",
+};
+
 caso("arma el cuerpo del modelo", () => {
-  const r = construirModeloDto({
-    nombre: "  Sillón Milán  ",
-    descripcion: "",
-    precio_base: "180000.50",
-    foto_url: "",
-  });
-  igual(r.data, { nombre: "Sillón Milán", descripcion: null, precio_base: 180000.5, foto_url: null },
-    "cuerpo inesperado");
+  const r = construirModeloDto(modeloTipico);
+  igual(
+    r.data,
+    {
+      nombre: "Sillón Milán",
+      descripcion: null,
+      precio_base: 180000.5,
+      profundidad_cm: 85,
+      altura_cm: 90,
+      ancho_cm: 80,
+      foto_url: null,
+    },
+    "cuerpo inesperado"
+  );
 });
 
 caso("rechaza precio vacío", () =>
-  rechaza(construirModeloDto({ nombre: "X", descripcion: "", precio_base: "", foto_url: "" }), "El precio"));
+  rechaza(construirModeloDto({ ...modeloTipico, precio_base: "" }), "El precio"));
+
+caso("rechaza medida en 0", () =>
+  rechaza(construirModeloDto({ ...modeloTipico, ancho_cm: "0" }), "El ancho"));
 
 caso("rechaza foto de un dominio externo", () =>
   rechaza(
-    construirModeloDto({ nombre: "X", descripcion: "", precio_base: "1", foto_url: "https://rastreador.example/p.png" }),
+    construirModeloDto({ ...modeloTipico, foto_url: "https://rastreador.example/p.png" }),
     "subida a este servidor"
   ));
 
 caso("acepta una foto legítima", () => {
-  const r = construirModeloDto({ nombre: "X", descripcion: "", precio_base: "1", foto_url: "/uploads/a3f9c2.png" });
+  const r = construirModeloDto({ ...modeloTipico, foto_url: "/uploads/a3f9c2.png" });
   if (!r.success) throw new Error(primerMensaje(r.error));
 });
 
@@ -212,6 +294,29 @@ caso("recupera un borrador válido", () => {
   const b = parsearBorrador(JSON.stringify(borradorTipico));
   igual(b.clienteNombre, "  Juan Pérez  ", "no conservó el nombre");
   igual(b.items.length, 1, "no conservó los ítems");
+});
+
+// Guardarraíl: si se agrega un campo al formulario y se olvida de declararlo en
+// borradorSchema, el dato se pierde en silencio al volver a la pantalla — el
+// usuario ve el pedido a medio cargar sin ese campo y no hay ningún error que
+// lo delate. Este caso compara campo por campo en vez de mirar solo algunos.
+caso("el borrador conserva TODOS los campos de la cabecera", () => {
+  const b = parsearBorrador(JSON.stringify(borradorTipico));
+  for (const clave of Object.keys(borradorTipico)) {
+    if (clave === "items") continue;
+    igual(b[clave], borradorTipico[clave], `se perdió "${clave}" al guardar el borrador`);
+  }
+});
+
+caso("el borrador conserva TODOS los campos de cada ítem", () => {
+  const b = parsearBorrador(JSON.stringify(borradorTipico));
+  for (const clave of Object.keys(borradorTipico.items[0])) {
+    igual(
+      b.items[0][clave],
+      borradorTipico.items[0][clave],
+      `se perdió "${clave}" del ítem al guardar el borrador`
+    );
+  }
 });
 
 caso("repone los campos rotos en vez de perder el pedido", () => {
@@ -242,11 +347,101 @@ caso("le pone key a un ítem que no la tiene", () => {
   if (!b.items[0].key || b.items[0].key.length < 10) throw new Error("no generó la key");
 });
 
-console.log("\n=== E. Validación de respuestas de la API ===");
+console.log("\n=== E. Catálogos ===");
+
+// El navegador da un File real; en Node se arma uno equivalente para poder
+// probar el DTO sin abrir una pantalla.
+const pdfFalso = (nombre, tipo, bytes) =>
+  new File([new Uint8Array(bytes)], nombre, { type: tipo });
+
+caso("arma el cuerpo del catálogo", () => {
+  const r = construirCatalogoDto({
+    nombre: "  Catálogo 2024  ",
+    archivo: pdfFalso("c.pdf", "application/pdf", 10),
+  });
+  if (!r.success) throw new Error(primerMensaje(r.error));
+  igual(r.data.nombre, "Catálogo 2024", "no recortó el nombre");
+});
+
+caso("rechaza catálogo sin nombre", () =>
+  rechaza(
+    construirCatalogoDto({ nombre: "   ", archivo: pdfFalso("c.pdf", "application/pdf", 10) }),
+    "El nombre"
+  ));
+
+caso("rechaza un archivo que no es PDF", () =>
+  rechaza(
+    construirCatalogoDto({ nombre: "X", archivo: pdfFalso("c.png", "image/png", 10) }),
+    "debe ser un PDF"
+  ));
+
+caso("rechaza un PDF de más de 60MB", () =>
+  rechaza(
+    construirCatalogoDto({
+      nombre: "X",
+      archivo: pdfFalso("c.pdf", "application/pdf", 61 * 1024 * 1024),
+    }),
+    "60MB"
+  ));
+
+caso("rechaza cuando no se eligió archivo", () =>
+  rechaza(construirCatalogoDto({ nombre: "X", archivo: null }), "PDF"));
+
+caso("arma la URL de una página con padding y la extensión de la portada", () => {
+  const catalogo = { id: 3, portada_url: "/uploads/catalogos/3/pagina-0001.webp" };
+  igual(paginaUrl(catalogo, 7), "/uploads/catalogos/3/pagina-0007.webp", "URL inesperada");
+  igual(paginaUrl(catalogo, 128), "/uploads/catalogos/3/pagina-0128.webp", "no paginó bien");
+});
+
+caso("respeta la extensión vieja de un catálogo ya subido", () => {
+  const catalogo = { id: 1, portada_url: "/uploads/catalogos/1/pagina-0001.jpg" };
+  igual(paginaUrl(catalogo, 2), "/uploads/catalogos/1/pagina-0002.jpg", "no respetó .jpg");
+});
+
+caso("acepta una lista de catálogos de la API", () => {
+  const r = validarRespuesta(
+    listaCatalogosSchema,
+    [
+      {
+        id: 1,
+        nombre: "Catálogo 2024",
+        portada_url: "/uploads/catalogos/1/pagina-0001.webp",
+        total_paginas: 10,
+        creado_en: "2026-08-24T17:00:00",
+      },
+    ],
+    "los catálogos"
+  );
+  igual(r.length, 1, "no devolvió el catálogo");
+});
+
+caso("rechaza un catálogo con 0 páginas", () => {
+  try {
+    validarRespuesta(
+      listaCatalogosSchema,
+      [
+        {
+          id: 1,
+          nombre: "X",
+          portada_url: "/uploads/catalogos/1/pagina-0001.webp",
+          total_paginas: 0,
+          creado_en: "2026-08-24T17:00:00",
+        },
+      ],
+      "los catálogos"
+    );
+    throw new Error("debería haber fallado");
+  } catch (e) {
+    if (!e.message.includes("formato inesperado")) throw e;
+  }
+});
+
+console.log("\n=== F. Validación de respuestas de la API ===");
 
 const pedidoValido = {
-  id: 1, codigo: "P-2026-0001", cliente_nombre: "Juan", cliente_contacto: null,
-  fecha_pedido: "2026-08-19", fecha_prometida: null, estado: "pendiente",
+  id: 1, codigo: "P-2026-0001", cliente_nombre: "Juan", cliente_contacto: "11-5555-4444",
+  cliente_direccion: "Calle Falsa 123", cliente_tipo_factura: "B", cliente_email: null,
+  fecha_pedido: "2026-08-19", fecha_prometida: "2026-08-25", estado: "pendiente",
   total: 580000, notas: null, comprobante_url: "/uploads/comprobantes/P-2026-0001.pdf",
   creado_en: "2026-08-19T00:00:00",
 };

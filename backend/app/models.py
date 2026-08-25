@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Numeric,
-    String,
     Text,
     func,
 )
@@ -17,13 +16,33 @@ from .database import Base
 
 class Modelo(Base):
     __tablename__ = "modelos"
+    __table_args__ = (
+        CheckConstraint("profundidad_cm > 0", name="modelos_profundidad_check"),
+        CheckConstraint("altura_cm > 0", name="modelos_altura_check"),
+        CheckConstraint("ancho_cm > 0", name="modelos_ancho_check"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
     descripcion: Mapped[str | None] = mapped_column(Text)
     precio_base: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    profundidad_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
+    altura_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
+    ancho_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
     foto_url: Mapped[str | None] = mapped_column(Text)
     activo: Mapped[bool] = mapped_column(default=True, nullable=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+class Catalogo(Base):
+    __tablename__ = "catalogos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(Text, nullable=False)
+    portada_url: Mapped[str] = mapped_column(Text, nullable=False)
+    total_paginas: Mapped[int] = mapped_column(nullable=False)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -36,16 +55,23 @@ class Pedido(Base):
             "estado IN ('pendiente','en_proceso','listo','entregado','cancelado')",
             name="pedidos_estado_check",
         ),
+        CheckConstraint(
+            "cliente_tipo_factura IN ('A','B','C')",
+            name="pedidos_tipo_factura_check",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     cliente_nombre: Mapped[str] = mapped_column(Text, nullable=False)
-    cliente_contacto: Mapped[str | None] = mapped_column(Text)
+    cliente_contacto: Mapped[str] = mapped_column(Text, nullable=False)
+    cliente_direccion: Mapped[str] = mapped_column(Text, nullable=False)
+    cliente_tipo_factura: Mapped[str] = mapped_column(Text, nullable=False)
+    cliente_email: Mapped[str | None] = mapped_column(Text)
     fecha_pedido: Mapped[date] = mapped_column(
         Date, server_default=func.current_date(), nullable=False
     )
-    fecha_prometida: Mapped[date | None] = mapped_column(Date)
+    fecha_prometida: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[str] = mapped_column(Text, default="pendiente", nullable=False)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     notas: Mapped[str | None] = mapped_column(Text)
@@ -70,7 +96,14 @@ class PedidoItem(Base):
     cantidad: Mapped[int] = mapped_column(default=1, nullable=False)
     tela: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str | None] = mapped_column(Text)
-    medidas: Mapped[str | None] = mapped_column(Text)
+    # En metros (a diferencia de las medidas del modelo, que son en cm): se
+    # precargan desde el modelo pero quedan editables por ítem, el cliente
+    # puede pedir otra medida. Nullable como tela/color: lo exige
+    # PedidoItemCreate, no la base, así que un ítem viejo sin estos datos se
+    # sigue pudiendo leer.
+    ancho_m: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    altura_m: Mapped[float | None] = mapped_column(Numeric(4, 2))
+    profundidad_m: Mapped[float | None] = mapped_column(Numeric(4, 2))
     precio_unitario: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
 

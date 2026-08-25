@@ -4,7 +4,7 @@ import { pedidosApi } from "../api/pedidos";
 import { fotoUrl, descargarArchivo } from "../api/fotos";
 import { primerMensaje } from "../schemas/comunes.js";
 import { estadoDtoSchema } from "../schemas/pedido.js";
-import { formatoMoneda, formatoFecha, ESTADOS } from "../utils/format";
+import { formatoMoneda, formatoFecha, formatoMedidasItem, ESTADOS } from "../utils/format";
 import Aviso from "../components/Aviso";
 
 export default function DetallePedido() {
@@ -94,13 +94,14 @@ export default function DetallePedido() {
 
       <section className="tarjeta">
         <p><strong>Cliente:</strong> {pedido.cliente_nombre}</p>
-        {pedido.cliente_contacto && (
-          <p><strong>Contacto:</strong> {pedido.cliente_contacto}</p>
+        <p><strong>Contacto:</strong> {pedido.cliente_contacto}</p>
+        <p><strong>Dirección de envío:</strong> {pedido.cliente_direccion}</p>
+        <p><strong>Tipo de factura:</strong> {pedido.cliente_tipo_factura}</p>
+        {pedido.cliente_email && (
+          <p><strong>Correo electrónico:</strong> {pedido.cliente_email}</p>
         )}
         <p><strong>Fecha del pedido:</strong> {formatoFecha(pedido.fecha_pedido)}</p>
-        {pedido.fecha_prometida && (
-          <p><strong>Entrega prometida:</strong> {formatoFecha(pedido.fecha_prometida)}</p>
-        )}
+        <p><strong>Entrega prometida:</strong> {formatoFecha(pedido.fecha_prometida)}</p>
         {pedido.notas && <p><strong>Notas:</strong> {pedido.notas}</p>}
 
         {pedido.comprobante_url ? (
@@ -121,16 +122,22 @@ export default function DetallePedido() {
             </div>
             {/* Discreto a propósito: con el comprobante ya disponible, esto es
                 la salida de emergencia (el archivo se perdió del disco), no una
-                acción que se busque a diario. */}
-            <button
-              type="button"
-              className="boton-texto"
-              onClick={regenerarComprobante}
-              disabled={regenerando}
-            >
-              {regenerando ? "Generando..." : "Generar de nuevo"}
-            </button>
+                acción que se busque a diario. Un pedido cancelado no la ofrece:
+                no tiene sentido generar un comprobante formal para algo que no
+                se concretó, aunque haya quedado uno de antes de cancelarlo. */}
+            {pedido.estado !== "cancelado" && (
+              <button
+                type="button"
+                className="boton-texto"
+                onClick={regenerarComprobante}
+                disabled={regenerando}
+              >
+                {regenerando ? "Generando..." : "Generar de nuevo"}
+              </button>
+            )}
           </>
+        ) : pedido.estado === "cancelado" ? (
+          <p className="nota-sutil">Los pedidos cancelados no generan comprobante.</p>
         ) : (
           <>
             <p className="nota-sutil">Este pedido no tiene comprobante generado.</p>
@@ -172,7 +179,9 @@ export default function DetallePedido() {
             <p><strong>Cantidad:</strong> {item.cantidad}</p>
             {item.tela && <p><strong>Tela:</strong> {item.tela}</p>}
             {item.color && <p><strong>Color:</strong> {item.color}</p>}
-            {item.medidas && <p><strong>Medidas:</strong> {item.medidas}</p>}
+            {item.ancho_m != null && (
+              <p><strong>Medidas:</strong> {formatoMedidasItem(item)}</p>
+            )}
             <p><strong>Precio unitario:</strong> {formatoMoneda(item.precio_unitario)}</p>
             <div className="subtotal">Subtotal: {formatoMoneda(item.subtotal)}</div>
           </div>

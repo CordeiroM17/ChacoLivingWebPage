@@ -2,11 +2,12 @@ import { z } from "zod";
 import {
   MAX_DESCRIPCION,
   MAX_FOTO_URL,
+  MAX_MEDIDA_CM,
   MAX_MONTO,
   MAX_NOMBRE,
   PATRON_FOTO,
 } from "./limites.js";
-import { monto, textoObligatorio, textoOpcional } from "./comunes.js";
+import { medidaCm, monto, textoObligatorio, textoOpcional } from "./comunes.js";
 
 // ---------- Lo que devuelve la API ----------
 
@@ -16,6 +17,9 @@ export const modeloSchema = z.object({
   nombre: z.string(),
   descripcion: z.string().nullable(),
   precio_base: z.number(),
+  profundidad_cm: z.number(),
+  altura_cm: z.number(),
+  ancho_cm: z.number(),
   foto_url: z.string().nullable(),
   activo: z.boolean(),
   creado_en: z.string(),
@@ -45,6 +49,9 @@ export const modeloDtoSchema = z.object({
   nombre: textoObligatorio(MAX_NOMBRE, "El nombre"),
   descripcion: textoOpcional(MAX_DESCRIPCION, "La descripción"),
   precio_base: monto({ etiqueta: "El precio", max: MAX_MONTO }),
+  profundidad_cm: medidaCm("La profundidad", MAX_MEDIDA_CM),
+  altura_cm: medidaCm("La altura", MAX_MEDIDA_CM),
+  ancho_cm: medidaCm("El ancho", MAX_MEDIDA_CM),
   foto_url: fotoUrlDto,
 });
 

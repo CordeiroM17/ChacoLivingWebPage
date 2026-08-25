@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   MAX_CONTACTO,
+  MAX_DIRECCION,
+  MAX_EMAIL,
   MAX_ITEMS,
   MAX_NOMBRE,
   MAX_NOTAS,
@@ -37,7 +39,9 @@ export const itemBorradorSchema = z.object({
   tela: texto(MAX_TEXTO_ITEM),
   telaOtra: texto(MAX_TEXTO_ITEM),
   color: texto(MAX_TEXTO_ITEM),
-  medidas: texto(MAX_TEXTO_ITEM),
+  anchoM: numeroTexto(),
+  alturaM: numeroTexto(),
+  profundidadM: numeroTexto(),
   cantidad: numeroTexto(),
   precio_unitario: numeroTexto(),
 });
@@ -46,6 +50,9 @@ export const borradorSchema = z.object({
   paso: z.number().int().min(0).max(3).catch(0),
   clienteNombre: texto(MAX_NOMBRE),
   clienteContacto: texto(MAX_CONTACTO),
+  clienteDireccion: texto(MAX_DIRECCION),
+  clienteTipoFactura: texto(1),
+  clienteEmail: texto(MAX_EMAIL),
   fechaPedido: texto(10),
   fechaPrometida: texto(10),
   notas: texto(MAX_NOTAS),

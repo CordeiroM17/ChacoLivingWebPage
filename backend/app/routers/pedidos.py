@@ -2,7 +2,7 @@ import logging
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -28,12 +28,25 @@ LIMITE_MAXIMO = 200
 
 
 def _generar_codigo(db: Session, anio: int) -> str:
-    cantidad = db.scalar(
-        select(func.count())
-        .select_from(models.Pedido)
-        .where(extract("year", models.Pedido.fecha_pedido) == anio)
+    """Siguiente código correlativo del año: P-{año}-{secuencia con padding 4}.
+
+    Se calcula desde el código más alto del año, no contando pedidos: contar
+    reusa números si alguna vez se borra una fila (dos pedidos terminarían con
+    el mismo `codigo`, que es UNIQUE, y el segundo alta fallaría).
+
+    El filtro va por rango de fechas en vez de `extract('year', ...)`: una
+    función sobre la columna impide usar `idx_pedidos_fecha` y obliga a leer la
+    tabla entera en cada alta.
+    """
+    ultimo = db.scalar(
+        select(func.max(models.Pedido.codigo)).where(
+            models.Pedido.fecha_pedido >= date(anio, 1, 1),
+            models.Pedido.fecha_pedido < date(anio + 1, 1, 1),
+        )
     )
-    secuencia = (cantidad or 0) + 1
+    # El padding a 4 dígitos hace que el orden alfabético coincida con el
+    # numérico hasta 9999 pedidos por año, de sobra para la fábrica.
+    secuencia = int(ultimo.rsplit("-", 1)[1]) + 1 if ultimo else 1
     return f"P-{anio}-{secuencia:04d}"
 
 
@@ -98,14 +111,14 @@ def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
     # solo se puede verificar contra la base: que los modelos existan, que estén
     # activos y que el total entre en la columna.
     hoy = date.today()
-    fecha_pedido = datos.fecha_pedido or hoy
+    fecha_pedido = datos.fecha_pedido
     if fecha_pedido < hoy - timedelta(days=DIAS_ATRAS_MAXIMO):
         raise HTTPException(
             status_code=422, detail="La fecha del pedido es demasiado antigua"
         )
     if fecha_pedido > hoy + timedelta(days=DIAS_ADELANTE_MAXIMO):
         raise HTTPException(status_code=422, detail="La fecha del pedido no puede ser futura")
-    if datos.fecha_prometida and datos.fecha_prometida < fecha_pedido:
+    if datos.fecha_prometida < fecha_pedido:
         raise HTTPException(
             status_code=422,
             detail="La entrega prometida no puede ser anterior a la fecha del pedido",
@@ -149,6 +162,9 @@ def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
         codigo=codigo,
         cliente_nombre=datos.cliente_nombre,
         cliente_contacto=datos.cliente_contacto,
+        cliente_direccion=datos.cliente_direccion,
+        cliente_tipo_factura=datos.cliente_tipo_factura,
+        cliente_email=datos.cliente_email,
         fecha_pedido=fecha_pedido,
         fecha_prometida=datos.fecha_prometida,
         notas=datos.notas,
@@ -161,7 +177,9 @@ def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
                 cantidad=item.cantidad,
                 tela=item.tela,
                 color=item.color,
-                medidas=item.medidas,
+                ancho_m=item.ancho_m,
+                altura_m=item.altura_m,
+                profundidad_m=item.profundidad_m,
                 precio_unitario=item.precio_unitario,
                 subtotal=subtotal,
             )
@@ -216,6 +234,11 @@ def regenerar_comprobante(pedido_id: int, db: Session = Depends(get_db)):
     pedido = _cargar_pedido_completo(db, pedido_id)
     if pedido is None:
         raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    if pedido.estado == "cancelado":
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede generar un comprobante para un pedido cancelado",
+        )
 
     modelos_por_id = {item.modelo.id: item.modelo for item in pedido.items}
     try:
@@ -250,9 +273,10 @@ def editar_pedido(
         )
 
     for campo, valor in cambios.items():
-        # contacto, fecha_prometida y notas se pueden vaciar; estado y
-        # cliente_nombre son NOT NULL y un null explícito se ignora.
-        if valor is None and campo in ("estado", "cliente_nombre"):
+        # notas se puede vaciar; el resto de lo que PedidoUpdate acepta es
+        # NOT NULL en la base, así que un null explícito se ignora en vez de
+        # reventar con un 500 al hacer commit.
+        if valor is None and campo != "notas":
             continue
         setattr(pedido, campo, valor)
 

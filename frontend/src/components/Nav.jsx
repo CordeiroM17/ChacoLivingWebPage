@@ -31,10 +31,20 @@ function IconCatalogo() {
   );
 }
 
+function IconLibro() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5c0-1 .8-1.75 1.75-1.75H12v15.5H5.75A1.75 1.75 0 0 0 4 21" />
+      <path d="M20 5.5c0-1-.8-1.75-1.75-1.75H12v15.5h6.25A1.75 1.75 0 0 1 20 21" />
+    </svg>
+  );
+}
+
 const links = [
   { to: "/", label: "Tomar pedido", end: true, Icon: IconNuevoPedido },
   { to: "/pedidos", label: "Ver pedidos", Icon: IconLista },
   { to: "/modelos", label: "Modelos", Icon: IconCatalogo },
+  { to: "/catalogos", label: "Catálogos", Icon: IconLibro },
 ];
 
 export default function Nav() {

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { CatalogoProvider } from "./context/CatalogoContext";
 import RutaProtegida from "./components/RutaProtegida";
 import Nav from "./components/Nav";
@@ -7,6 +8,8 @@ import TomarPedido from "./pages/TomarPedido";
 import VerPedidos from "./pages/VerPedidos";
 import DetallePedido from "./pages/DetallePedido";
 import Modelos from "./pages/Modelos";
+import Catalogos from "./pages/Catalogos";
+import VisorCatalogo from "./pages/VisorCatalogo";
 import { borrarToken, haySesion } from "./utils/sesion";
 import "./App.css";
 
@@ -90,6 +93,22 @@ function Cuerpo() {
               </RutaProtegida>
             }
           />
+          <Route
+            path="/catalogos"
+            element={
+              <RutaProtegida>
+                <Catalogos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/catalogos/:id"
+            element={
+              <RutaProtegida>
+                <VisorCatalogo />
+              </RutaProtegida>
+            }
+          />
         </Routes>
       </main>
     </div>
@@ -107,6 +126,7 @@ export default function App() {
           </header>
           <Cuerpo />
         </div>
+        <Analytics />
       </CatalogoProvider>
     </BrowserRouter>
   );

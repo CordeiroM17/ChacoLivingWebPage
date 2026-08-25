@@ -65,18 +65,37 @@ export function monto({ etiqueta, max }) {
   return numeroDesdeInput({ etiqueta, min: 0, max, decimales: 2 });
 }
 
+/** Medida en centímetros: mayor que cero (nunca 0 ni negativa), acotada, un decimal. */
+export function medidaCm(etiqueta, max) {
+  return numeroDesdeInput({ etiqueta, min: 0.1, max, decimales: 1 });
+}
+
+/** Medida en metros: mayor que cero (nunca 0 ni negativa), acotada, dos decimales. */
+export function medidaMetros(etiqueta, max) {
+  return numeroDesdeInput({ etiqueta, min: 0.01, max, decimales: 2 });
+}
+
+/**
+ * Correo electrónico opcional: "" y undefined se normalizan a null. Solo
+ * valida la forma (no DNS ni MX), igual que el backend.
+ */
+export function correoOpcional(maximo, etiqueta) {
+  return z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((valor) => (typeof valor === "string" ? valor.trim() : ""))
+    .transform((valor) => valor || null)
+    .refine(
+      (valor) => valor === null || valor.length <= maximo,
+      `${etiqueta} supera el máximo de ${maximo} caracteres.`
+    )
+    .refine(
+      (valor) => valor === null || z.email().safeParse(valor).success,
+      `${etiqueta} no tiene un formato válido.`
+    );
+}
+
 /** Fecha en formato ISO (YYYY-MM-DD), que es lo que producen los <input type="date">. */
 export const fechaISO = z.iso.date("La fecha tiene un formato inválido.");
-
-/** Fecha opcional: "" y undefined se normalizan a null. */
-export const fechaISOOpcional = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((valor) => (typeof valor === "string" ? valor.trim() : ""))
-  .transform((valor) => valor || null)
-  .refine(
-    (valor) => valor === null || fechaISO.safeParse(valor).success,
-    "La fecha tiene un formato inválido."
-  );
 
 /** Primer mensaje de error de un resultado de `safeParse`, listo para mostrar. */
 export function primerMensaje(error, respaldo = "Hay datos inválidos en el formulario.") {
