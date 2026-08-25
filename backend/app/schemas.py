@@ -14,8 +14,7 @@ MAX_CANTIDAD = 1000  # un pedido de fábrica no llega ni cerca
 MAX_ITEMS = 50  # ítems distintos por pedido
 MAX_DIRECCION = 300
 MAX_EMAIL = 200
-MAX_MEDIDA_CM = 500  # ningún sillón de fábrica llega a 5 metros de lado
-MAX_MEDIDA_M = 5  # mismo tope que MAX_MEDIDA_CM: la medida del ítem del pedido va en metros
+MAX_MEDIDA_M = 5  # ningún sillón de fábrica llega a 5 metros de lado
 
 # Los uploads siempre devuelven /uploads/{uuid}.{ext}. Aceptar cualquier string
 # permitiría apuntar la foto de un modelo a un dominio externo.
@@ -72,9 +71,9 @@ class ModeloBase(BaseModel):
     nombre: str = Field(min_length=1, max_length=200)
     descripcion: str | None = Field(default=None, max_length=1000)
     precio_base: float = Field(ge=0, le=MAX_MONTO, allow_inf_nan=False)
-    profundidad_cm: float = Field(gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
-    altura_cm: float = Field(gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
-    ancho_cm: float = Field(gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
+    profundidad_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
+    altura_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
+    ancho_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     foto_url: str | None = Field(default=None, max_length=300)
 
     _limpiar_nombre = field_validator("nombre")(_texto_obligatorio)
@@ -92,9 +91,9 @@ class ModeloUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=200)
     descripcion: str | None = Field(default=None, max_length=1000)
     precio_base: float | None = Field(default=None, ge=0, le=MAX_MONTO, allow_inf_nan=False)
-    profundidad_cm: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
-    altura_cm: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
-    ancho_cm: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_CM, allow_inf_nan=False)
+    profundidad_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
+    altura_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
+    ancho_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     foto_url: str | None = Field(default=None, max_length=300)
     activo: bool | None = None
 
@@ -114,9 +113,9 @@ class ModeloOut(BaseModel):
     nombre: str
     descripcion: str | None
     precio_base: float
-    profundidad_cm: float
-    altura_cm: float
-    ancho_cm: float
+    profundidad_m: float
+    altura_m: float
+    ancho_m: float
     foto_url: str | None
     activo: bool
     creado_en: datetime
@@ -153,9 +152,8 @@ class PedidoItemCreate(BaseModel):
     cantidad: int = Field(default=1, gt=0, le=MAX_CANTIDAD)
     tela: str = Field(min_length=1, max_length=100)
     color: str = Field(min_length=1, max_length=100)
-    # En metros (el modelo del catálogo usa cm; el ítem del pedido, metros).
-    # Se precargan desde el modelo en el frontend pero llegan editables: el
-    # cliente puede pedir otra medida para ese sillón puntual.
+    # Se copian del modelo al elegirlo (misma unidad, sin conversión) pero
+    # llegan editables: el cliente puede pedir otra medida para ese sillón.
     ancho_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     altura_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     profundidad_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)

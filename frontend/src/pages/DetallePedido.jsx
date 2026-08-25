@@ -4,7 +4,7 @@ import { pedidosApi } from "../api/pedidos";
 import { fotoUrl, descargarArchivo } from "../api/fotos";
 import { primerMensaje } from "../schemas/comunes.js";
 import { estadoDtoSchema } from "../schemas/pedido.js";
-import { formatoMoneda, formatoFecha, formatoMedidasItem, ESTADOS } from "../utils/format";
+import { formatoMoneda, formatoFecha, formatoMedidas, ESTADOS } from "../utils/format";
 import Aviso from "../components/Aviso";
 
 export default function DetallePedido() {
@@ -179,7 +179,7 @@ export default function DetallePedido() {
             {item.tela && <p><strong>Tela:</strong> {item.tela}</p>}
             {item.color && <p><strong>Color:</strong> {item.color}</p>}
             {item.ancho_m != null && (
-              <p><strong>Medidas:</strong> {formatoMedidasItem(item)}</p>
+              <p><strong>Medidas:</strong> {formatoMedidas(item)}</p>
             )}
             <p><strong>Precio unitario:</strong> {formatoMoneda(item.precio_unitario)}</p>
             <div className="subtotal">Subtotal: {formatoMoneda(item.subtotal)}</div>

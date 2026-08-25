@@ -65,11 +65,6 @@ export function monto({ etiqueta, max }) {
   return numeroDesdeInput({ etiqueta, min: 0, max, decimales: 2 });
 }
 
-/** Medida en centímetros: mayor que cero (nunca 0 ni negativa), acotada, un decimal. */
-export function medidaCm(etiqueta, max) {
-  return numeroDesdeInput({ etiqueta, min: 0.1, max, decimales: 1 });
-}
-
 /** Medida en metros: mayor que cero (nunca 0 ni negativa), acotada, dos decimales. */
 export function medidaMetros(etiqueta, max) {
   return numeroDesdeInput({ etiqueta, min: 0.01, max, decimales: 2 });

@@ -17,18 +17,20 @@ from .database import Base
 class Modelo(Base):
     __tablename__ = "modelos"
     __table_args__ = (
-        CheckConstraint("profundidad_cm > 0", name="modelos_profundidad_check"),
-        CheckConstraint("altura_cm > 0", name="modelos_altura_check"),
-        CheckConstraint("ancho_cm > 0", name="modelos_ancho_check"),
+        CheckConstraint("profundidad_m > 0", name="modelos_profundidad_check"),
+        CheckConstraint("altura_m > 0", name="modelos_altura_check"),
+        CheckConstraint("ancho_m > 0", name="modelos_ancho_check"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
     descripcion: Mapped[str | None] = mapped_column(Text)
     precio_base: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    profundidad_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
-    altura_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
-    ancho_cm: Mapped[float] = mapped_column(Numeric(6, 1), nullable=False)
+    # En metros, la misma unidad que usan los ítems del pedido: las medidas del
+    # modelo se copian tal cual al ítem al elegirlo, sin conversión en el medio.
+    profundidad_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+    altura_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+    ancho_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     foto_url: Mapped[str | None] = mapped_column(Text)
     activo: Mapped[bool] = mapped_column(default=True, nullable=False)
     creado_en: Mapped[datetime] = mapped_column(

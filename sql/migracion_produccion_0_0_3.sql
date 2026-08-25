@@ -45,28 +45,31 @@ ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_tipo_factura_check;
 ALTER TABLE pedidos ADD CONSTRAINT pedidos_tipo_factura_check
     CHECK (cliente_tipo_factura IN ('A','B','C'));
 
--- ---------- 3. Medidas del modelo (en cm, obligatorias) ----------
+-- ---------- 3. Medidas del modelo (en metros, obligatorias) ----------
+--
+-- Misma unidad que los ítems del pedido: al elegir un modelo, sus medidas se
+-- copian tal cual al ítem, sin ninguna conversión de por medio.
 
-ALTER TABLE modelos ADD COLUMN IF NOT EXISTS profundidad_cm NUMERIC(6,1);
-ALTER TABLE modelos ADD COLUMN IF NOT EXISTS altura_cm NUMERIC(6,1);
-ALTER TABLE modelos ADD COLUMN IF NOT EXISTS ancho_cm NUMERIC(6,1);
+ALTER TABLE modelos ADD COLUMN IF NOT EXISTS profundidad_m NUMERIC(4,2);
+ALTER TABLE modelos ADD COLUMN IF NOT EXISTS altura_m NUMERIC(4,2);
+ALTER TABLE modelos ADD COLUMN IF NOT EXISTS ancho_m NUMERIC(4,2);
 
--- 1 cm a propósito: un valor obviamente falso que salta a la vista en la lista
--- de Modelos, para que no pase por real hasta corregirlo.
-UPDATE modelos SET profundidad_cm = 1 WHERE profundidad_cm IS NULL;
-UPDATE modelos SET altura_cm = 1 WHERE altura_cm IS NULL;
-UPDATE modelos SET ancho_cm = 1 WHERE ancho_cm IS NULL;
+-- 0.01 m a propósito: un valor obviamente falso que salta a la vista en la
+-- lista de Modelos, para que no pase por real hasta corregirlo a mano.
+UPDATE modelos SET profundidad_m = 0.01 WHERE profundidad_m IS NULL;
+UPDATE modelos SET altura_m = 0.01 WHERE altura_m IS NULL;
+UPDATE modelos SET ancho_m = 0.01 WHERE ancho_m IS NULL;
 
-ALTER TABLE modelos ALTER COLUMN profundidad_cm SET NOT NULL;
-ALTER TABLE modelos ALTER COLUMN altura_cm SET NOT NULL;
-ALTER TABLE modelos ALTER COLUMN ancho_cm SET NOT NULL;
+ALTER TABLE modelos ALTER COLUMN profundidad_m SET NOT NULL;
+ALTER TABLE modelos ALTER COLUMN altura_m SET NOT NULL;
+ALTER TABLE modelos ALTER COLUMN ancho_m SET NOT NULL;
 
 ALTER TABLE modelos DROP CONSTRAINT IF EXISTS modelos_profundidad_check;
 ALTER TABLE modelos DROP CONSTRAINT IF EXISTS modelos_altura_check;
 ALTER TABLE modelos DROP CONSTRAINT IF EXISTS modelos_ancho_check;
-ALTER TABLE modelos ADD CONSTRAINT modelos_profundidad_check CHECK (profundidad_cm > 0);
-ALTER TABLE modelos ADD CONSTRAINT modelos_altura_check CHECK (altura_cm > 0);
-ALTER TABLE modelos ADD CONSTRAINT modelos_ancho_check CHECK (ancho_cm > 0);
+ALTER TABLE modelos ADD CONSTRAINT modelos_profundidad_check CHECK (profundidad_m > 0);
+ALTER TABLE modelos ADD CONSTRAINT modelos_altura_check CHECK (altura_m > 0);
+ALTER TABLE modelos ADD CONSTRAINT modelos_ancho_check CHECK (ancho_m > 0);
 
 -- ---------- 4. Medidas por ítem del pedido (en metros) ----------
 

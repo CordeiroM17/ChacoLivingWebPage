@@ -12,9 +12,9 @@ function formularioVacio() {
     nombre: "",
     descripcion: "",
     precio_base: "",
-    profundidad_cm: "",
-    altura_cm: "",
-    ancho_cm: "",
+    profundidad_m: "",
+    altura_m: "",
+    ancho_m: "",
     foto_url: "",
   };
 }
@@ -40,9 +40,9 @@ export default function Modelos() {
       nombre: modelo.nombre,
       descripcion: modelo.descripcion || "",
       precio_base: String(modelo.precio_base),
-      profundidad_cm: String(modelo.profundidad_cm),
-      altura_cm: String(modelo.altura_cm),
-      ancho_cm: String(modelo.ancho_cm),
+      profundidad_m: String(modelo.profundidad_m),
+      altura_m: String(modelo.altura_m),
+      ancho_m: String(modelo.ancho_m),
       foto_url: modelo.foto_url || "",
     });
   }
@@ -151,35 +151,35 @@ export default function Modelos() {
 
           <div className="fila-3">
             <label className="campo">
-              Ancho (cm) *
+              Ancho (m) *
               <input
                 type="number"
-                min="0.1"
-                step="0.1"
-                value={form.ancho_cm}
-                onChange={(e) => setForm({ ...form, ancho_cm: e.target.value })}
+                min="0.01"
+                step="0.01"
+                value={form.ancho_m}
+                onChange={(e) => setForm({ ...form, ancho_m: e.target.value })}
                 required
               />
             </label>
             <label className="campo">
-              Altura (cm) *
+              Alto (m) *
               <input
                 type="number"
-                min="0.1"
-                step="0.1"
-                value={form.altura_cm}
-                onChange={(e) => setForm({ ...form, altura_cm: e.target.value })}
+                min="0.01"
+                step="0.01"
+                value={form.altura_m}
+                onChange={(e) => setForm({ ...form, altura_m: e.target.value })}
                 required
               />
             </label>
             <label className="campo">
-              Profundidad (cm) *
+              Profundidad (m) *
               <input
                 type="number"
-                min="0.1"
-                step="0.1"
-                value={form.profundidad_cm}
-                onChange={(e) => setForm({ ...form, profundidad_cm: e.target.value })}
+                min="0.01"
+                step="0.01"
+                value={form.profundidad_m}
+                onChange={(e) => setForm({ ...form, profundidad_m: e.target.value })}
                 required
               />
             </label>

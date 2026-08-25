@@ -10,9 +10,9 @@ CREATE TABLE modelos (
     nombre TEXT NOT NULL,
     descripcion TEXT,
     precio_base NUMERIC(12,2) NOT NULL,
-    profundidad_cm NUMERIC(6,1) NOT NULL CHECK (profundidad_cm > 0),
-    altura_cm NUMERIC(6,1) NOT NULL CHECK (altura_cm > 0),
-    ancho_cm NUMERIC(6,1) NOT NULL CHECK (ancho_cm > 0),
+    profundidad_m NUMERIC(4,2) NOT NULL CHECK (profundidad_m > 0),
+    altura_m NUMERIC(4,2) NOT NULL CHECK (altura_m > 0),
+    ancho_m NUMERIC(4,2) NOT NULL CHECK (ancho_m > 0),
     foto_url TEXT,
     activo BOOLEAN NOT NULL DEFAULT true,
     creado_en TIMESTAMP NOT NULL DEFAULT now()

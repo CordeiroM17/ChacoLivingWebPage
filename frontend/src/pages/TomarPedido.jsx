@@ -10,7 +10,7 @@ import {
   validarPasoCliente,
   validarPasoItems,
 } from "../schemas/pedido.js";
-import { formatoMoneda, formatoFecha, formatoMedidasItem, TELAS } from "../utils/format";
+import { formatoMoneda, formatoFecha, formatoMedidas, TELAS } from "../utils/format";
 import { TIPOS_FACTURA_VALIDOS } from "../schemas/limites.js";
 import Aviso from "../components/Aviso";
 
@@ -30,14 +30,6 @@ function nuevoItem() {
     cantidad: "1",
     precio_unitario: "",
   };
-}
-
-// El modelo guarda sus medidas de fábrica en cm; el ítem del pedido las
-// trabaja en metros de punta a punta. Esta es la única cuenta que cruza esa
-// frontera, y es solo para sugerir un valor inicial: el campo queda igual de
-// editable que si se hubiera cargado a mano.
-function valorInicialEnMetros(cm) {
-  return String(Number(cm) / 100);
 }
 
 function hoyISO() {
@@ -160,10 +152,11 @@ export default function TomarPedido() {
       modelo_id: modeloId,
       precio_unitario: modelo ? String(modelo.precio_base) : "",
       // Las medidas del modelo son el punto de partida; quedan editables por
-      // si este pedido puntual necesita otra cosa.
-      anchoM: modelo ? valorInicialEnMetros(modelo.ancho_cm) : "",
-      alturaM: modelo ? valorInicialEnMetros(modelo.altura_cm) : "",
-      profundidadM: modelo ? valorInicialEnMetros(modelo.profundidad_cm) : "",
+      // si este pedido puntual necesita otra cosa. Se copian tal cual: modelo
+      // e ítem usan la misma unidad, así que no hay ninguna cuenta en el medio.
+      anchoM: modelo ? String(modelo.ancho_m) : "",
+      alturaM: modelo ? String(modelo.altura_m) : "",
+      profundidadM: modelo ? String(modelo.profundidad_m) : "",
     });
   }
 
@@ -551,7 +544,7 @@ export default function TomarPedido() {
                   {items.map((item, idx) => {
                     const modelo = modelos.find((m) => String(m.id) === String(item.modelo_id));
                     const tela = item.tela === "otra" ? item.telaOtra : item.tela;
-                    const medidas = formatoMedidasItem({
+                    const medidas = formatoMedidas({
                       ancho_m: item.anchoM,
                       altura_m: item.alturaM,
                       profundidad_m: item.profundidadM,
@@ -640,7 +633,7 @@ export default function TomarPedido() {
 
                 <div className="factura-items">
                   {pedidoGuardado.items.map((item) => {
-                    const detalle = [item.tela, item.color, formatoMedidasItem(item)]
+                    const detalle = [item.tela, item.color, formatoMedidas(item)]
                       .filter(Boolean)
                       .join(" · ");
                     return (

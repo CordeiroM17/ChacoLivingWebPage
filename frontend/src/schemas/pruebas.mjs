@@ -240,9 +240,9 @@ const modeloTipico = {
   nombre: "  Sillón Milán  ",
   descripcion: "",
   precio_base: "180000.50",
-  ancho_cm: "80",
-  altura_cm: "90",
-  profundidad_cm: "85",
+  ancho_m: "0.80",
+  altura_m: "0.90",
+  profundidad_m: "0.85",
   foto_url: "",
 };
 
@@ -254,9 +254,9 @@ caso("arma el cuerpo del modelo", () => {
       nombre: "Sillón Milán",
       descripcion: null,
       precio_base: 180000.5,
-      profundidad_cm: 85,
-      altura_cm: 90,
-      ancho_cm: 80,
+      profundidad_m: 0.85,
+      altura_m: 0.9,
+      ancho_m: 0.8,
       foto_url: null,
     },
     "cuerpo inesperado"
@@ -267,7 +267,7 @@ caso("rechaza precio vacío", () =>
   rechaza(construirModeloDto({ ...modeloTipico, precio_base: "" }), "El precio"));
 
 caso("rechaza medida en 0", () =>
-  rechaza(construirModeloDto({ ...modeloTipico, ancho_cm: "0" }), "El ancho"));
+  rechaza(construirModeloDto({ ...modeloTipico, ancho_m: "0" }), "El ancho"));
 
 caso("rechaza foto de un dominio externo", () =>
   rechaza(
