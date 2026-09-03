@@ -1279,3 +1279,132 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ============================================================
+   PWA — app instalada en la pantalla de inicio
+   Barra de estado translúcida en iOS (viewport-fit=cover):
+   respetar las "safe areas" (notch, esquinas, indicador de inicio).
+   ============================================================ */
+
+.encabezado {
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(1.1rem, env(safe-area-inset-left));
+  padding-right: max(1.1rem, env(safe-area-inset-right));
+}
+
+.contenido {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 1023px) {
+  .nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Banner "Instalá Chaco Living" — en flujo, debajo del header, descartable */
+.banner-instalar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem max(1.1rem, env(safe-area-inset-left)) 0.7rem
+    max(1.1rem, env(safe-area-inset-right));
+  background: var(--accent-100);
+  border-bottom: 1px solid var(--ink-200);
+  color: var(--accent-700);
+  font-size: var(--text-sm);
+}
+
+.banner-instalar-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.banner-instalar-texto strong {
+  font-weight: 700;
+}
+
+.banner-instalar-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.banner-instalar-boton {
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-500);
+  color: var(--white);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.banner-instalar-cerrar {
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: none;
+  color: var(--accent-600);
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Aviso de versión nueva — fijo abajo, por encima de la tab bar */
+.toast-actualizar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.7rem 0.9rem 0.7rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--ink-900);
+  color: var(--white);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-card);
+}
+
+.toast-actualizar-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.toast-actualizar button {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-500);
+  color: var(--white);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-actualizar .toast-actualizar-cerrar {
+  background: none;
+  color: var(--ink-300);
+  font-weight: 500;
+}
+
+@media (min-width: 1024px) {
+  .toast-actualizar {
+    left: auto;
+    right: 1.5rem;
+    transform: none;
+    bottom: 1.5rem;
+  }
+}

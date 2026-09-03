@@ -3,6 +3,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { CatalogoProvider } from "./context/CatalogoContext";
 import RutaProtegida from "./components/RutaProtegida";
 import Nav from "./components/Nav";
+import InstalarApp from "./components/InstalarApp";
+import ActualizarApp from "./components/ActualizarApp";
 import Login from "./pages/Login";
 import TomarPedido from "./pages/TomarPedido";
 import VerPedidos from "./pages/VerPedidos";
@@ -124,7 +126,9 @@ export default function App() {
             <Marca />
             <BotonSalir />
           </header>
+          <InstalarApp />
           <Cuerpo />
+          <ActualizarApp />
         </div>
         <Analytics />
       </CatalogoProvider>
