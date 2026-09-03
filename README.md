@@ -97,6 +97,30 @@ npm run dev
 
 Queda disponible en `http://localhost:5173`.
 
+> El service worker (PWA) **no** corre con `npm run dev`. Para probar instalación,
+> actualización y comportamiento offline hay que usar el build real:
+> `npm run build && npm run preview`.
+
+### 3.1 Instalar en la pantalla de inicio (PWA)
+
+La app es una PWA instalable. Requiere HTTPS (Vercel ya lo da) o `localhost`.
+
+- **Android / Chrome**: aparece el banner "Instalá Chaco Living" con botón
+  **Instalar**. Si se descartó, se puede instalar desde el menú ⋮ → "Instalar
+  aplicación" / "Agregar a pantalla principal".
+- **iPhone / iPad (Safari)**: no hay botón automático. Compartir (⎋) → **Agregar
+  a inicio**. La app muestra esa instrucción en el banner.
+- Una vez instalada abre a pantalla completa (sin barra del navegador) y respeta
+  el notch / indicador de inicio del iPhone.
+
+**Actualizaciones**: cuando se despliega una versión nueva, la app muestra abajo
+"Hay una versión nueva → Actualizar". No recarga sola (se estaría cargando un
+pedido). Config en `frontend/vite.config.js` (`registerType: 'prompt'`).
+
+**Íconos**: se generan desde un único glifo con `npm run icons`
+(`frontend/scripts/generar-iconos.mjs`). Editar ahí si cambia la marca y volver
+a correr; los PNG resultantes se commitean.
+
 ### 4. Configurar el login con Google
 
 La app usa "Iniciar sesión con Google" en vez de usuario/contraseña propios. Pasos
@@ -133,10 +157,11 @@ python -c "import secrets; print(secrets.token_hex(32))"
   (JWT, 30 días) recién después de validar el token de Google contra la lista
   blanca `ADMIN_EMAILS`. Reemplaza al token fijo del MVP original (sección 9 del
   CLAUDE.md) — detalle completo en `Arreglos.md`, sección 12.
-- El monograma (`favicon.svg`, `icon-192/512.png`, marca del header) es un ícono de
-  sillón autorado a partir de la paleta descripta por el dueño (grises/negro +
-  un verde acotado); no es el logo real de Chaco Living, que todavía no se
-  entregó como archivo. Reemplazar cuando esté disponible.
+- El monograma (`favicon.svg`, íconos PWA `pwa-*.png` / `apple-touch-icon.png`
+  generados con `npm run icons`, marca del header) es un ícono de sillón autorado
+  a partir de la paleta descripta por el dueño (grises/negro + un verde acotado);
+  no es el logo real de Chaco Living, que todavía no se entregó como archivo.
+  Reemplazar el glifo en `frontend/scripts/generar-iconos.mjs` cuando esté disponible.
 - Sistema de diseño documentado en `PRODUCT.md` (contexto de producto) y
   `DESIGN.md` (paleta, tipografía, componentes) usando la skill `impeccable`
   instalada a nivel de proyecto en `.claude/skills/impeccable`.
