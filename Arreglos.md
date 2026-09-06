@@ -1060,3 +1060,73 @@ Se reescribió la guía de Docker (comandos del día a día, cómo reiniciar la 
 cero, por qué `schema.sql` no se re-aplica con un `restart`) y la de despliegue, ahora
 paso a paso para Railway y Vercel con las variables de cada uno, el `Root Directory` que
 hace falta en ambos por ser monorepo, y la prueba final del volumen.
+
+---
+
+## 16. Varias fotos por modelo, popup de detalle y "Editar" que sube la vista
+
+**Fecha:** 06/09/2026
+**Archivos:** `backend/app/models.py`, `backend/app/schemas.py`,
+`backend/app/routers/modelos.py`, `backend/app/errores.py`, `sql/schema.sql`,
+`sql/migracion_fotos_modelo.sql` (nuevo), `frontend/src/pages/Modelos.jsx`,
+`frontend/src/components/ModeloDetalle.jsx` (nuevo), `frontend/src/schemas/modelo.js`,
+`frontend/src/schemas/limites.js`, `frontend/src/schemas/pruebas.mjs`,
+`frontend/src/App.css`
+
+### Varias fotos por modelo
+
+**Antes:** cada modelo tenía una sola foto (`modelos.foto_url TEXT`). **Ahora:**
+`modelos.fotos TEXT[] NOT NULL DEFAULT '{}'` — lista ordenada de rutas `/uploads/...`,
+la primera es la portada.
+
+Por qué un array y no una tabla `modelo_fotos` aparte: no hay nada que colgar de cada
+foto (ni fecha, ni autor, ni pie) y reordenar o quitar una es reescribir la fila del
+modelo, que ya se hace en cada edición. Una tabla agregaría un `JOIN` y un alta/baja por
+foto sin ningún dato que lo justifique.
+
+Para no tocar todo lo que ya mostraba **una** foto del modelo (miniatura en la lista,
+ítems del pedido, comprobante en PDF), el modelo expone además una propiedad calculada
+`foto_url` = `fotos[0]` (o `None`). `ModeloResumenOut` y el comprobante la siguen leyendo
+igual que antes; el array completo solo lo consumen el form de Modelos y el popup nuevo.
+
+- **Límite:** 12 fotos por modelo (`MAX_FOTOS_MODELO`, espejado en el front). El backend
+  además descarta duplicados y valida que cada ruta sea un upload de este servidor
+  (mismo patrón que antes con `foto_url`).
+- **`PATCH /modelos/{id}`**: `fotos` ausente = no se tocan; `[]` = se quitan todas.
+- **Subida:** el endpoint `POST /api/fotos` sigue siendo de a una imagen; el form sube
+  las seleccionadas en serie y las va agregando a la lista. Se puede reordenar la
+  portada (★) y quitar cualquiera (×) antes de guardar.
+
+**Migración:** `sql/migracion_fotos_modelo.sql` — agrega `fotos`, pasa la `foto_url`
+vieja de cada modelo a `fotos[0]`, y elimina `foto_url`. Entera en una transacción e
+idempotente. Verificada contra la base local (ida y vuelta, y corrida dos veces sin
+romper). En una base nueva no hace falta: `sql/schema.sql` ya trae la columna.
+
+### Popup de detalle del modelo
+
+`frontend/src/components/ModeloDetalle.jsx`: al tocar una fila de la lista de Modelos se
+abre un diálogo a pantalla completa (tapa header y nav, igual que el visor de catálogos)
+con la galería de fotos, precio, medidas, estado y descripción. Las acciones —**Editar**
+y **Activar/Desactivar**— viven adentro del popup; la lista quedó solo de consulta, con
+un contador sobre la miniatura cuando el modelo tiene más de una foto. Cierra con ×, con
+Escape o tocando fuera, y bloquea el scroll de fondo mientras está abierto.
+
+No se agregó borrado físico de modelos: se mantiene la regla del CLAUDE.md (sección 2 y
+9) de que "eliminar" es `activo = false`, para no romper los pedidos históricos que
+usaron el modelo.
+
+### "Editar" lleva la vista arriba
+
+El form de alta/edición de modelos vive arriba de todo en la pantalla. Tanto "Editar"
+(desde el popup) como "+ Nuevo modelo" ahora hacen `window.scrollTo({ top: 0 })`, igual
+que "Tomar pedido" al pasar de un paso al siguiente: si estabas al final de una lista
+larga, no tenías forma de saber que el form se había abierto.
+
+### Verificación
+
+- `node src/schemas/pruebas.mjs`: 62/62 (casos nuevos: rechaza más de 12 fotos, rechaza
+  foto externa en el array, acepta varias y descarta las vacías).
+- `npm run build` y `npm run lint` limpios.
+- Backend contra la base local: alta con 2 fotos, reordenar portada, vaciar, editar sin
+  tocar `fotos` (se preservan), rechazo 422 de una URL externa, y `GET /pedidos/{id}`
+  sigue devolviendo `modelo.foto_url` por la propiedad calculada.

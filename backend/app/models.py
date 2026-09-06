@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import (
+    ARRAY,
     CheckConstraint,
     Date,
     DateTime,
@@ -8,6 +9,7 @@ from sqlalchemy import (
     Numeric,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,11 +33,27 @@ class Modelo(Base):
     profundidad_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     altura_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
     ancho_m: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
-    foto_url: Mapped[str | None] = mapped_column(Text)
+    # Varias fotos por modelo, en orden: la primera es la portada (la que se ve
+    # como miniatura en la lista, en los ítems del pedido y en el comprobante).
+    # Guardadas como array de rutas `/uploads/...`; reordenar o quitar una es
+    # reasignar la lista entera, no hay tabla aparte.
+    fotos: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
     activo: Mapped[bool] = mapped_column(default=True, nullable=False)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
+
+    @property
+    def foto_url(self) -> str | None:
+        """La portada: primera foto, o None si el modelo no tiene ninguna.
+
+        Se expone así para que todo lo que ya mostraba una sola foto del modelo
+        (miniatura en la lista, ítems del pedido, comprobante en PDF) siga
+        funcionando sin cambios.
+        """
+        return self.fotos[0] if self.fotos else None
 
 
 class Catalogo(Base):

@@ -165,15 +165,19 @@ python -c "import secrets; print(secrets.token_hex(32))"
 - Sistema de diseño documentado en `PRODUCT.md` (contexto de producto) y
   `DESIGN.md` (paleta, tipografía, componentes) usando la skill `impeccable`
   instalada a nivel de proyecto en `.claude/skills/impeccable`.
-- Cada modelo del catálogo admite una foto opcional (`foto_url`), subida desde
-  "Modelos". Se guarda en disco en `backend/app/uploads/` (no versionado) y se
-  sirve en `/uploads/<archivo>`, con `Cache-Control` de un año (nunca se
-  sobrescribe un archivo, cada subida tiene nombre nuevo). La ruta es
-  configurable con la variable `UPLOADS_DIR`: sin ella, cae en
-  `backend/app/uploads/` como en desarrollo local; en Railway hay que
-  apuntarla a un volumen persistente, porque el disco del contenedor es
-  efímero y se borra en cada redeploy (ver CLAUDE.md sección 9, punto 4, para
-  la alternativa de storage S3-compatible).
+- Cada modelo del catálogo admite varias fotos opcionales (`modelos.fotos`,
+  array de rutas; la primera es la portada), subidas desde "Modelos". Se
+  guardan en disco en `backend/app/uploads/` (no versionado) y se sirven en
+  `/uploads/<archivo>`, con `Cache-Control` de un año (nunca se sobrescribe un
+  archivo, cada subida tiene nombre nuevo). La ruta es configurable con la
+  variable `UPLOADS_DIR`: sin ella, cae en `backend/app/uploads/` como en
+  desarrollo local; en Railway hay que apuntarla a un volumen persistente,
+  porque el disco del contenedor es efímero y se borra en cada redeploy (ver
+  CLAUDE.md sección 9, punto 4, para la alternativa de storage S3-compatible).
+  El backend expone además `foto_url` (= `fotos[0]` o `null`) para todo lo que
+  muestra una sola foto: la miniatura de la lista, los ítems del pedido y el
+  comprobante en PDF. Tocar una fila en "Modelos" abre un popup con el detalle
+  completo del modelo; Editar y Activar/Desactivar viven ahí adentro.
 - "Tomar pedido" y el detalle de "Ver pedidos" muestran la foto del modelo
   elegido en cada ítem (no se suben fotos por ítem/pedido). El paso
   "Confirmar" del wizard lista los ítems en formato factura (modelo, foto,
@@ -232,6 +236,16 @@ psql "<DATABASE_URL que da Railway>" -f sql/seed.sql
 > administrado de Railway: allá la base arranca vacía. Correr `schema.sql`
 > **entero**, que además de las tablas crea la extensión `pg_trgm` y los índices
 > del buscador.
+
+> **Base nueva:** `schema.sql` ya trae todo el esquema actual — no corras
+> ninguna migración de `sql/`. Las `sql/migracion_*.sql` son solo para
+> **actualizar una base que ya tenía datos** (p. ej. el entorno `dev` que se
+> creó con un esquema anterior). Cada una corre **una vez**, va dentro de una
+> transacción y es idempotente. En orden histórico:
+> `migracion_cliente_extendido.sql`, `migracion_medidas_modelo.sql`,
+> `migracion_medidas_item.sql`, `migracion_produccion_0_0_3.sql` (junta las tres
+> anteriores), `limpieza_medidas_cm.sql`, `migracion_fotos_modelo.sql` (varias
+> fotos por modelo, 0.0.4).
 
 ### 2. Backend en Railway
 

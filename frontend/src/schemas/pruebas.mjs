@@ -243,7 +243,7 @@ const modeloTipico = {
   ancho_m: "0.80",
   altura_m: "0.90",
   profundidad_m: "0.85",
-  foto_url: "",
+  fotos: [],
 };
 
 caso("arma el cuerpo del modelo", () => {
@@ -257,7 +257,7 @@ caso("arma el cuerpo del modelo", () => {
       profundidad_m: 0.85,
       altura_m: 0.9,
       ancho_m: 0.8,
-      foto_url: null,
+      fotos: [],
     },
     "cuerpo inesperado"
   );
@@ -269,15 +269,28 @@ caso("rechaza precio vacío", () =>
 caso("rechaza medida en 0", () =>
   rechaza(construirModeloDto({ ...modeloTipico, ancho_m: "0" }), "El ancho"));
 
-caso("rechaza foto de un dominio externo", () =>
+caso("rechaza una foto de un dominio externo", () =>
   rechaza(
-    construirModeloDto({ ...modeloTipico, foto_url: "https://rastreador.example/p.png" }),
+    construirModeloDto({ ...modeloTipico, fotos: ["https://rastreador.example/p.png"] }),
     "subida a este servidor"
   ));
 
-caso("acepta una foto legítima", () => {
-  const r = construirModeloDto({ ...modeloTipico, foto_url: "/uploads/a3f9c2.png" });
+caso("rechaza más fotos que el máximo", () =>
+  rechaza(
+    construirModeloDto({
+      ...modeloTipico,
+      fotos: Array.from({ length: 13 }, (_, i) => `/uploads/f${i}.webp`),
+    }),
+    "más de 12"
+  ));
+
+caso("acepta varias fotos legítimas y descarta las vacías", () => {
+  const r = construirModeloDto({
+    ...modeloTipico,
+    fotos: ["/uploads/a3f9c2.png", "  ", "/uploads/b7d1e0.webp"],
+  });
   if (!r.success) throw new Error(primerMensaje(r.error));
+  igual(r.data.fotos, ["/uploads/a3f9c2.png", "/uploads/b7d1e0.webp"], "no limpió las fotos");
 });
 
 console.log("\n=== D. Borrador de localStorage ===");

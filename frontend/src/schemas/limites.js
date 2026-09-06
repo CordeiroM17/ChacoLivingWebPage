@@ -16,6 +16,7 @@ export const MAX_NOTAS = 2000;
 export const MAX_DESCRIPCION = 1000;
 export const MAX_TEXTO_ITEM = 100; // tela, color, medidas
 export const MAX_FOTO_URL = 300;
+export const MAX_FOTOS_MODELO = 12; // espejado de backend/app/schemas.py
 export const MAX_NOMBRE_CATALOGO = 200;
 export const TAMANO_MAXIMO_PDF = 60 * 1024 * 1024; // 60MB, espejado del backend
 export const MAX_DIRECCION = 300;

@@ -13,7 +13,9 @@ CREATE TABLE modelos (
     profundidad_m NUMERIC(4,2) NOT NULL CHECK (profundidad_m > 0),
     altura_m NUMERIC(4,2) NOT NULL CHECK (altura_m > 0),
     ancho_m NUMERIC(4,2) NOT NULL CHECK (ancho_m > 0),
-    foto_url TEXT,
+    -- Fotos del modelo en orden; la primera es la portada. Array en vez de
+    -- tabla aparte: reordenar/quitar es reescribir la fila entera.
+    fotos TEXT[] NOT NULL DEFAULT '{}',
     activo BOOLEAN NOT NULL DEFAULT true,
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );

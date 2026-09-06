@@ -30,6 +30,7 @@ CAMPOS = {
     "altura_m": ("La altura", False),
     "ancho_m": ("El ancho", False),
     "foto_url": ("La foto", False),
+    "fotos": ("Las fotos", True),
     "activo": ("El estado activo", False),
     "estado": ("El estado", False),
 }
