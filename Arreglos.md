@@ -1130,3 +1130,38 @@ larga, no tenías forma de saber que el form se había abierto.
 - Backend contra la base local: alta con 2 fotos, reordenar portada, vaciar, editar sin
   tocar `fotos` (se preservan), rechazo 422 de una URL externa, y `GET /pedidos/{id}`
   sigue devolviendo `modelo.foto_url` por la propiedad calculada.
+
+---
+
+## 17. Fuera los avisos de instalar / actualizar, y navegación de fotos en el popup
+
+**Fecha:** 06/09/2026
+**Archivos:** `frontend/vite.config.js`, `frontend/src/App.jsx`,
+`frontend/src/components/InstalarApp.jsx` (borrado),
+`frontend/src/components/ActualizarApp.jsx` (borrado),
+`frontend/src/components/ModeloDetalle.jsx`, `frontend/src/App.css`, `README.md`
+
+### Sin avisos de instalación ni de actualización
+
+La instalación la coordina el dueño por fuera de la app, así que los dos avisos
+en pantalla —el banner "Instalá Chaco Living" y el toast "Hay una versión
+nueva"— eran ruido. Se borraron los dos componentes y su CSS.
+
+El service worker sigue registrándose: `registerType` pasó de `'prompt'` a
+`'autoUpdate'` (con `injectRegister: 'auto'`, que inyecta el registro en el
+`index.html` —confirmado: el build ahora emite `dist/registerSW.js`). La versión
+nueva se aplica sola en la próxima carga, sin preguntar. El motivo original para
+`'prompt'` era no recargar a mitad de un pedido; ya no aplica, porque el
+borrador de "Tomar pedido" se guarda en `localStorage` y se repone al montar.
+
+### Navegación de fotos en el popup de modelo
+
+El popup ya mostraba la galería con tiras de miniaturas. Se le agregó, como en el
+visor de catálogos: flechas ‹ / › sobre la foto, swipe táctil (umbral 40px),
+flechas del teclado, un contador "2 / 5" y un fundido corto al cambiar. Envuelve
+en los extremos (de la última pasa a la primera). Las miniaturas siguen estando.
+
+### Verificación
+
+`npm run build` y `npm run lint` limpios; `node src/schemas/pruebas.mjs` 62/62.
+El build ya no incluye `virtual:pwa-register` y bajó ~2 KB.

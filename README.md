@@ -104,18 +104,19 @@ Queda disponible en `http://localhost:5173`.
 ### 3.1 Instalar en la pantalla de inicio (PWA)
 
 La app es una PWA instalable. Requiere HTTPS (Vercel ya lo da) o `localhost`.
+No muestra ningún aviso de instalación adentro de la app —la coordina el dueño
+por fuera—; se instala desde el navegador:
 
-- **Android / Chrome**: aparece el banner "Instalá Chaco Living" con botón
-  **Instalar**. Si se descartó, se puede instalar desde el menú ⋮ → "Instalar
-  aplicación" / "Agregar a pantalla principal".
-- **iPhone / iPad (Safari)**: no hay botón automático. Compartir (⎋) → **Agregar
-  a inicio**. La app muestra esa instrucción en el banner.
+- **Android / Chrome**: menú ⋮ → "Instalar aplicación" / "Agregar a pantalla
+  principal".
+- **iPhone / iPad (Safari)**: Compartir (⎋) → **Agregar a inicio**.
 - Una vez instalada abre a pantalla completa (sin barra del navegador) y respeta
   el notch / indicador de inicio del iPhone.
 
-**Actualizaciones**: cuando se despliega una versión nueva, la app muestra abajo
-"Hay una versión nueva → Actualizar". No recarga sola (se estaría cargando un
-pedido). Config en `frontend/vite.config.js` (`registerType: 'prompt'`).
+**Actualizaciones**: `registerType: 'autoUpdate'` en `frontend/vite.config.js`.
+La versión nueva se aplica sola en la próxima carga, sin avisos ni botón. El
+borrador de "Tomar pedido" vive en `localStorage`, así que una recarga no pierde
+lo que se estaba cargando.
 
 **Íconos**: se generan desde un único glifo con `npm run icons`
 (`frontend/scripts/generar-iconos.mjs`). Editar ahí si cambia la marca y volver
