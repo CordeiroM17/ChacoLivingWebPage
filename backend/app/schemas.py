@@ -16,6 +16,11 @@ MAX_DIRECCION = 300
 MAX_EMAIL = 200
 MAX_MEDIDA_M = 5  # ningún sillón de fábrica llega a 5 metros de lado
 MAX_FOTOS_MODELO = 12  # de sobra para mostrar un modelo desde varios ángulos
+MAX_NOMBRE = 200
+MAX_CONTACTO = 100
+MAX_LOCALIDAD = 120
+MAX_CUIT = 15  # "XX-XXXXXXXX-X" = 13; con margen
+MAX_CLIENTE_NOTAS = 2000
 
 # Los uploads siempre devuelven /uploads/{uuid}.{ext}. Aceptar cualquier string
 # permitiría apuntar la foto de un modelo a un dominio externo.
@@ -69,6 +74,95 @@ def _validar_email(valor: str | None) -> str | None:
     if not PATRON_EMAIL.match(limpio):
         raise ValueError("no tiene un formato válido")
     return limpio
+
+
+def _validar_tipo_factura_opcional(valor: str | None) -> str | None:
+    if valor is None or valor == "":
+        return None
+    if valor not in TIPOS_FACTURA:
+        raise ValueError(f"debe ser uno de: {', '.join(TIPOS_FACTURA)}")
+    return valor
+
+
+# ---------- Clientes ----------
+#
+# Lista global, compartida entre solapas. El pedido guarda su propio snapshot de
+# los datos del cliente; este registro es la fuente para autocompletar y para
+# agrupar los pedidos de la misma persona.
+
+
+class ClienteBase(BaseModel):
+    model_config = SOLO_LO_DECLARADO
+
+    nombre: str = Field(min_length=1, max_length=MAX_NOMBRE)
+    contacto: str | None = Field(default=None, max_length=MAX_CONTACTO)
+    direccion: str | None = Field(default=None, max_length=MAX_DIRECCION)
+    tipo_factura: str | None = None
+    email: str | None = Field(default=None, max_length=MAX_EMAIL)
+    localidad: str | None = Field(default=None, max_length=MAX_LOCALIDAD)
+    cuit: str | None = Field(default=None, max_length=MAX_CUIT)
+    notas: str | None = Field(default=None, max_length=MAX_CLIENTE_NOTAS)
+
+    _limpiar_nombre = field_validator("nombre")(_texto_obligatorio)
+    _limpiar_contacto = field_validator("contacto")(_texto_opcional)
+    _limpiar_direccion = field_validator("direccion")(_texto_opcional)
+    _limpiar_localidad = field_validator("localidad")(_texto_opcional)
+    _limpiar_cuit = field_validator("cuit")(_texto_opcional)
+    _limpiar_notas = field_validator("notas")(_texto_opcional)
+    _validar_correo = field_validator("email")(_validar_email)
+    _validar_tipo_factura = field_validator("tipo_factura")(_validar_tipo_factura_opcional)
+
+
+class ClienteCreate(ClienteBase):
+    pass
+
+
+class ClienteUpdate(BaseModel):
+    model_config = SOLO_LO_DECLARADO
+
+    nombre: str | None = Field(default=None, min_length=1, max_length=MAX_NOMBRE)
+    contacto: str | None = Field(default=None, max_length=MAX_CONTACTO)
+    direccion: str | None = Field(default=None, max_length=MAX_DIRECCION)
+    tipo_factura: str | None = None
+    email: str | None = Field(default=None, max_length=MAX_EMAIL)
+    localidad: str | None = Field(default=None, max_length=MAX_LOCALIDAD)
+    cuit: str | None = Field(default=None, max_length=MAX_CUIT)
+    notas: str | None = Field(default=None, max_length=MAX_CLIENTE_NOTAS)
+    activo: bool | None = None
+
+    @field_validator("nombre")
+    @classmethod
+    def _limpiar_nombre(cls, valor: str | None) -> str | None:
+        return _texto_obligatorio(valor) if valor is not None else None
+
+    _limpiar_contacto = field_validator("contacto")(_texto_opcional)
+    _limpiar_direccion = field_validator("direccion")(_texto_opcional)
+    _limpiar_localidad = field_validator("localidad")(_texto_opcional)
+    _limpiar_cuit = field_validator("cuit")(_texto_opcional)
+    _limpiar_notas = field_validator("notas")(_texto_opcional)
+    _validar_correo = field_validator("email")(_validar_email)
+    _validar_tipo_factura = field_validator("tipo_factura")(_validar_tipo_factura_opcional)
+
+
+class ClienteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    contacto: str | None
+    direccion: str | None
+    tipo_factura: str | None
+    email: str | None
+    localidad: str | None
+    cuit: str | None
+    notas: str | None
+    activo: bool
+    creado_en: datetime
+
+
+class ClientesPaginadosOut(BaseModel):
+    items: list[ClienteOut]
+    total: int
 
 
 # ---------- Modelos ----------
@@ -201,8 +295,12 @@ class PedidoItemOut(BaseModel):
 class PedidoCreate(BaseModel):
     model_config = SOLO_LO_DECLARADO
 
-    cliente_nombre: str = Field(min_length=1, max_length=200)
-    cliente_contacto: str = Field(min_length=1, max_length=100)
+    # Link opcional al cliente elegido de la lista. Los `cliente_*` de abajo son
+    # el snapshot (el frontend los prellena desde ese cliente, pero quedan
+    # editables por pedido).
+    cliente_id: int | None = Field(default=None, gt=0)
+    cliente_nombre: str = Field(min_length=1, max_length=MAX_NOMBRE)
+    cliente_contacto: str = Field(min_length=1, max_length=MAX_CONTACTO)
     cliente_direccion: str = Field(min_length=1, max_length=MAX_DIRECCION)
     cliente_tipo_factura: str
     cliente_email: str | None = Field(default=None, max_length=MAX_EMAIL)
@@ -255,6 +353,7 @@ class PedidoOut(BaseModel):
 
     id: int
     codigo: str
+    cliente_id: int | None
     cliente_nombre: str
     cliente_contacto: str
     cliente_direccion: str

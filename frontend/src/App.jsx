@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { CatalogoProvider } from "./context/CatalogoContext";
+import { ClientesProvider } from "./context/ClientesContext";
 import RutaProtegida from "./components/RutaProtegida";
 import Nav from "./components/Nav";
 import Login from "./pages/Login";
@@ -8,6 +9,7 @@ import TomarPedido from "./pages/TomarPedido";
 import VerPedidos from "./pages/VerPedidos";
 import DetallePedido from "./pages/DetallePedido";
 import Modelos from "./pages/Modelos";
+import Clientes from "./pages/Clientes";
 import Catalogos from "./pages/Catalogos";
 import VisorCatalogo from "./pages/VisorCatalogo";
 import { borrarToken, haySesion } from "./utils/sesion";
@@ -94,6 +96,14 @@ function Cuerpo() {
             }
           />
           <Route
+            path="/clientes"
+            element={
+              <RutaProtegida>
+                <Clientes />
+              </RutaProtegida>
+            }
+          />
+          <Route
             path="/catalogos"
             element={
               <RutaProtegida>
@@ -119,14 +129,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <CatalogoProvider>
-        <div className="app">
-          <header className="encabezado">
-            <Marca />
-            <BotonSalir />
-          </header>
-          <Cuerpo />
-        </div>
-        <Analytics />
+        <ClientesProvider>
+          <div className="app">
+            <header className="encabezado">
+              <Marca />
+              <BotonSalir />
+            </header>
+            <Cuerpo />
+          </div>
+          <Analytics />
+        </ClientesProvider>
       </CatalogoProvider>
     </BrowserRouter>
   );

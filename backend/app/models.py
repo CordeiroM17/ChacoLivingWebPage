@@ -56,6 +56,32 @@ class Modelo(Base):
         return self.fotos[0] if self.fotos else None
 
 
+class Cliente(Base):
+    __tablename__ = "clientes"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_factura IS NULL OR tipo_factura IN ('A','B','C')",
+            name="clientes_tipo_factura_check",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(Text, nullable=False)
+    contacto: Mapped[str | None] = mapped_column(Text)
+    direccion: Mapped[str | None] = mapped_column(Text)
+    # Preferencia por defecto del cliente; el pedido guarda su propio snapshot
+    # y puede diferir (se edita por pedido).
+    tipo_factura: Mapped[str | None] = mapped_column(Text)
+    email: Mapped[str | None] = mapped_column(Text)
+    localidad: Mapped[str | None] = mapped_column(Text)
+    cuit: Mapped[str | None] = mapped_column(Text)
+    notas: Mapped[str | None] = mapped_column(Text)
+    activo: Mapped[bool] = mapped_column(default=True, nullable=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
 class Catalogo(Base):
     __tablename__ = "catalogos"
 
@@ -83,11 +109,22 @@ class Pedido(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    # Link opcional al cliente de la lista global. Los `cliente_*` de abajo son
+    # el snapshot congelado al momento del pedido (pueden diferir del cliente si
+    # se editaron acá); el link sirve para agrupar y para autocompletar el
+    # próximo pedido de la misma persona.
+    cliente_id: Mapped[int | None] = mapped_column(
+        ForeignKey("clientes.id", ondelete="SET NULL")
+    )
     cliente_nombre: Mapped[str] = mapped_column(Text, nullable=False)
     cliente_contacto: Mapped[str] = mapped_column(Text, nullable=False)
     cliente_direccion: Mapped[str] = mapped_column(Text, nullable=False)
     cliente_tipo_factura: Mapped[str] = mapped_column(Text, nullable=False)
     cliente_email: Mapped[str | None] = mapped_column(Text)
+    # Mail del JWT de quien cargó el pedido. Hoy no se usa para permisos (un
+    # solo dueño), pero se guarda desde ahora para no tener que backfillearlo
+    # cuando haya varios usuarios.
+    creado_por: Mapped[str | None] = mapped_column(Text)
     fecha_pedido: Mapped[date] = mapped_column(
         Date, server_default=func.current_date(), nullable=False
     )
@@ -103,6 +140,7 @@ class Pedido(Base):
     items: Mapped[list["PedidoItem"]] = relationship(
         back_populates="pedido", cascade="all, delete-orphan"
     )
+    cliente: Mapped["Cliente | None"] = relationship()
 
 
 class PedidoItem(Base):

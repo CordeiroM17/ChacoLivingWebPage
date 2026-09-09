@@ -1165,3 +1165,85 @@ en los extremos (de la última pasa a la primera). Las miniaturas siguen estando
 
 `npm run build` y `npm run lint` limpios; `node src/schemas/pruebas.mjs` 62/62.
 El build ya no incluye `virtual:pwa-register` y bajó ~2 KB.
+
+---
+
+## 18. Lista global de clientes (Fase 1 · v0.0.5)
+
+**Fecha:** 08/09/2026
+**Archivos:** `backend/app/models.py`, `backend/app/schemas.py`,
+`backend/app/errores.py`, `backend/app/routers/clientes.py` (nuevo),
+`backend/app/routers/pedidos.py`, `backend/app/main.py`,
+`sql/schema.sql`, `sql/migracion_clientes.sql` (nuevo),
+`backend/tests/` (nuevo — `conftest.py` + `test_clientes.py`),
+`frontend/src/schemas/cliente.js` (nuevo), `frontend/src/api/clientes.js` (nuevo),
+`frontend/src/context/ClientesContext.jsx` + `clientes.js` (nuevos),
+`frontend/src/pages/Clientes.jsx` (nuevo),
+`frontend/src/components/ClienteAutocomplete.jsx` (nuevo),
+`frontend/src/pages/TomarPedido.jsx`, `frontend/src/schemas/pedido.js`,
+`frontend/src/schemas/borrador.js`, `frontend/src/schemas/limites.js`,
+`frontend/src/App.jsx`, `frontend/src/components/Nav.jsx`, `frontend/src/App.css`
+
+Primera fase de la reestructuración multi-solapa (plan completo fuera del repo).
+
+### La tabla `clientes`
+
+Lista global de clientes: `id, nombre, contacto, direccion, tipo_factura (A/B/C
+nullable), email, localidad, cuit, notas, activo, creado_en`. Índice GIN pg_trgm
+en `nombre` para el buscador. Soft-delete (`activo=false`), nunca DELETE físico
+—mismo criterio que los modelos.
+
+`pedidos` gana dos columnas:
+- `cliente_id` (FK nullable, `ON DELETE SET NULL`): link a la lista global. Los
+  `cliente_*` del pedido siguen siendo el **snapshot** congelado al momento de la
+  venta (pueden diferir del cliente si se editaron al tomar el pedido).
+- `creado_por` (texto, nullable): el mail del JWT de quien cargó el pedido. Hoy
+  no se usa para permisos (un solo dueño); se guarda desde ahora para no tener
+  que backfillearlo cuando haya varios usuarios (mismo criterio que `estado` /
+  `fecha_prometida` "desde el día uno").
+
+### El backfill de la migración
+
+`sql/migracion_clientes.sql` crea la tabla, agrega las columnas, y —solo la
+primera vez— arma un cliente por cada nombre distinto que ya aparece en los
+pedidos: dedup `lower(btrim(nombre))`, tomando contacto/dirección/tipo/correo del
+pedido **más reciente** con ese nombre; los centinela `'Sin especificar'` de
+migraciones viejas se pasan a `NULL`. Después linkea cada pedido a su cliente
+(los que tienen nombre `'Sin especificar'` quedan con `cliente_id` NULL a
+propósito). Los nombres escritos distinto quedan como clientes separados —se
+corrigen a mano; el snapshot del pedido queda intacto igual. Entera en una
+transacción, idempotente.
+
+### Auto-alta de clientes al tomar pedido
+
+`POST /pedidos`: si viene `cliente_id`, tiene que existir y estar activo (422 si
+no). Si **no** viene, el backend busca un cliente por nombre (case-insensitive)
+y lo linkea; si no existe, lo **crea** con los datos del pedido. Así la lista se
+puebla sola: no hace falta dar de alta clientes a mano, aunque se puede desde la
+sección "Clientes".
+
+### Frontend
+
+- Sección **Clientes** nueva (`/clientes`, entrada en el Nav): lista con buscador
+  en memoria + alta/edición inline + activar/desactivar. Mismo patrón visual que
+  "Modelos".
+- `ClientesContext`: clon del patrón SWR de `CatalogoContext` (hidrata de
+  `localStorage` `chaco_clientes_v1`, una revalidación por sesión, `aplicarCliente`
+  optimista). Provider anidado dentro de `CatalogoProvider` en `App.jsx`.
+- **Tomar pedido**, paso "Cliente": el campo de nombre pasó a ser un autocompletar
+  (`ClienteAutocomplete`) sobre la lista en memoria. Elegir uno prellena
+  contacto/dirección/tipo/correo (editables). Escribir un nombre nuevo está OK
+  —el backend lo crea al confirmar—; al guardar se revalida la lista para que
+  aparezca en el próximo pedido.
+- El borrador de localStorage y los esquemas de pedido ganan `clienteId` /
+  `cliente_id` (nullable).
+
+### Verificación
+
+- `cd backend && pytest` → 12/12 (CRUD de clientes, PATCH vaciable, auto-alta y
+  auto-link al tomar pedido, `cliente_id` inexistente/desactivado → 422,
+  idempotencia de la migración).
+- `npm run lint` / `test:schemas` (71/71) / `build` limpios.
+- Migración probada contra una copia de la base con datos: dedup correcto
+  ("Juan Pérez" + "  juan pérez " → un cliente), centinela sin linkear, 2ª
+  corrida sin error.

@@ -152,7 +152,13 @@ python -c "import secrets; print(secrets.token_hex(32))"
   recalcula si después cambia el precio del modelo).
 - El código de pedido (`P-2026-0001`) se genera en el backend, correlativo por año.
 - "Eliminar" un modelo en realidad lo desactiva (`activo = false`); nunca se
-  borra físicamente, para no romper pedidos históricos.
+  borra físicamente, para no romper pedidos históricos. Lo mismo para los
+  clientes.
+- **Clientes** (`/clientes`): lista global. Cada pedido se linkea a un cliente
+  (`pedidos.cliente_id`) pero guarda su propio snapshot de nombre/contacto/etc.
+  Al tomar un pedido, el campo de cliente autocompleta sobre la lista; si se
+  escribe un nombre nuevo, el backend crea el cliente al confirmar. `pedidos`
+  también guarda `creado_por` (el mail de quien lo cargó), sin uso hoy.
 - Autenticación con login de Google (ver "Configurar el login con Google" arriba):
   el frontend nunca guarda un secreto fijo, el backend emite su propia sesión
   (JWT, 30 días) recién después de validar el token de Google contra la lista
@@ -272,7 +278,8 @@ psql "<DATABASE_URL que da Railway>" -f sql/seed.sql
 > `migracion_cliente_extendido.sql`, `migracion_medidas_modelo.sql`,
 > `migracion_medidas_item.sql`, `migracion_produccion_0_0_3.sql` (junta las tres
 > anteriores), `limpieza_medidas_cm.sql`, `migracion_fotos_modelo.sql` (varias
-> fotos por modelo, 0.0.4).
+> fotos por modelo, 0.0.4), `migracion_clientes.sql` (lista global de clientes +
+> `pedidos.cliente_id`/`creado_por`, 0.0.5).
 
 ### 2. Backend en Railway
 

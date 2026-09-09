@@ -9,11 +9,19 @@ que sin esto el usuario vería "[object Object]".
 # campo -> (etiqueta, es_plural). El plural define la conjugación del verbo; las
 # frases están redactadas para no depender del género.
 CAMPOS = {
+    "cliente_id": ("El cliente", False),
     "cliente_nombre": ("El nombre del cliente", False),
     "cliente_contacto": ("El contacto", False),
     "cliente_direccion": ("La dirección de envío", False),
     "cliente_tipo_factura": ("El tipo de factura", False),
     "cliente_email": ("El correo electrónico", False),
+    # Campos de la lista de clientes (nombres sin prefijo `cliente_`).
+    "contacto": ("El contacto", False),
+    "direccion": ("La dirección", False),
+    "tipo_factura": ("El tipo de factura", False),
+    "email": ("El correo electrónico", False),
+    "localidad": ("La localidad", False),
+    "cuit": ("El CUIT", False),
     "fecha_pedido": ("La fecha del pedido", False),
     "fecha_prometida": ("La entrega prometida", False),
     "notas": ("Las notas", True),

@@ -40,9 +40,20 @@ function IconLibro() {
   );
 }
 
+function IconClientes() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.25" />
+      <path d="M3.5 19.5c0-3.2 2.6-5.5 5.5-5.5s5.5 2.3 5.5 5.5" />
+      <path d="M16.5 6.4a3 3 0 0 1 0 5.7M20.5 19.5c0-2.6-1.4-4.6-3.4-5.3" />
+    </svg>
+  );
+}
+
 const links = [
   { to: "/", label: "Tomar pedido", end: true, Icon: IconNuevoPedido },
   { to: "/pedidos", label: "Ver pedidos", Icon: IconLista },
+  { to: "/clientes", label: "Clientes", Icon: IconClientes },
   { to: "/modelos", label: "Modelos", Icon: IconCatalogo },
   { to: "/catalogos", label: "Catálogos", Icon: IconLibro },
 ];

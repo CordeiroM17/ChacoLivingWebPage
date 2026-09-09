@@ -21,6 +21,9 @@ export const MAX_NOMBRE_CATALOGO = 200;
 export const TAMANO_MAXIMO_PDF = 60 * 1024 * 1024; // 60MB, espejado del backend
 export const MAX_DIRECCION = 300;
 export const MAX_EMAIL = 200;
+export const MAX_LOCALIDAD = 120;
+export const MAX_CUIT = 15;
+export const MAX_CLIENTE_NOTAS = 2000;
 export const MAX_MEDIDA_M = 5; // ningún sillón de fábrica llega a 5 metros de lado
 
 export const TIPOS_FACTURA_VALIDOS = ["A", "B", "C"];

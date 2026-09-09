@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pedidosApi } from "../api/pedidos";
 import { fotoUrl, descargarArchivo } from "../api/fotos";
 import { useCatalogo } from "../context/catalogo.js";
+import { useClientes } from "../context/clientes.js";
 import { parsearBorrador } from "../schemas/borrador.js";
 import { primerMensaje } from "../schemas/comunes.js";
 import {
@@ -13,6 +14,7 @@ import {
 import { formatoMoneda, formatoFecha, formatoMedidas, TELAS } from "../utils/format";
 import { TIPOS_FACTURA_VALIDOS } from "../schemas/limites.js";
 import Aviso from "../components/Aviso";
+import ClienteAutocomplete from "../components/ClienteAutocomplete";
 
 const PASOS = ["Cliente", "Sillones", "Confirmar", "Factura"];
 const BORRADOR_KEY = "chaco_pedido_borrador";
@@ -44,6 +46,7 @@ function hoyISO() {
 // claves.
 function cabeceraVacia() {
   return {
+    clienteId: "",
     clienteNombre: "",
     clienteContacto: "",
     clienteDireccion: "",
@@ -82,6 +85,7 @@ export default function TomarPedido() {
   // abrió la app, así que esta pantalla no dispara ninguna petición al entrar.
   const { modelos, modelosActivos, cargando: cargandoCatalogo, error: errorCatalogo } =
     useCatalogo();
+  const { clientesActivos, refrescar: refrescarClientes } = useClientes();
 
   // Con inicializador perezoso: se relee de localStorage en cada montaje, no
   // una sola vez al cargar el módulo. Sin esto, ir a otra sección de la app
@@ -232,6 +236,9 @@ export default function TomarPedido() {
     try {
       const creado = await pedidosApi.crear(dto.data);
       localStorage.removeItem(BORRADOR_KEY);
+      // El backend puede haber creado un cliente nuevo con este pedido: se
+      // revalida la lista para que aparezca en el próximo autocompletar.
+      refrescarClientes().catch(() => {});
       setPedidoGuardado(creado);
       setAviso({ tipo: "exito", mensaje: "Pedido guardado correctamente." });
       setPaso(3);
@@ -290,16 +297,24 @@ export default function TomarPedido() {
           {paso === 0 && (
             <section className="tarjeta">
               <h2>Cliente</h2>
-              <label className="campo">
-                Nombre *
-                <input
-                  type="text"
-                  value={cabecera.clienteNombre}
-                  onChange={(e) => actualizarCabecera({ clienteNombre: e.target.value })}
-                  placeholder="Nombre del cliente"
-                  required
-                />
-              </label>
+              <ClienteAutocomplete
+                nombre={cabecera.clienteNombre}
+                clienteId={cabecera.clienteId}
+                clientes={clientesActivos}
+                onEscribir={(nombre) =>
+                  actualizarCabecera({ clienteNombre: nombre, clienteId: "" })
+                }
+                onElegir={(c) =>
+                  actualizarCabecera({
+                    clienteId: String(c.id),
+                    clienteNombre: c.nombre,
+                    clienteContacto: c.contacto || "",
+                    clienteDireccion: c.direccion || "",
+                    clienteTipoFactura: c.tipo_factura || "",
+                    clienteEmail: c.email || "",
+                  })
+                }
+              />
               <label className="campo">
                 Contacto / teléfono *
                 <input
