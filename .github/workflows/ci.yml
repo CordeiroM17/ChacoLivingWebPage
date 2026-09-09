@@ -64,7 +64,7 @@ jobs:
       JWT_SECRET_KEY: ci-no-secreto
       GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
       ADMIN_EMAILS: ci@example.com
-      UPLOADS_DIR: ${{ runner.temp }}/uploads
+      UPLOADS_DIR: /tmp/ci-uploads
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
