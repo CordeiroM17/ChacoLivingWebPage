@@ -48,6 +48,7 @@ export const itemBorradorSchema = z.object({
 
 export const borradorSchema = z.object({
   paso: z.number().int().min(0).max(3).catch(0),
+  clienteId: numeroTexto(),
   clienteNombre: texto(MAX_NOMBRE),
   clienteContacto: texto(MAX_CONTACTO),
   clienteDireccion: texto(MAX_DIRECCION),

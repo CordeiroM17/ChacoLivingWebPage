@@ -8,6 +8,7 @@
 import { parsearBorrador } from "./borrador.js";
 import { construirCatalogoDto, listaCatalogosSchema, paginaUrl } from "./catalogo.js";
 import { primerMensaje, validarRespuesta } from "./comunes.js";
+import { construirClienteDto } from "./cliente.js";
 import { construirModeloDto } from "./modelo.js";
 import {
   construirPedidoDto,
@@ -46,6 +47,7 @@ function rechaza(resultado, fragmentoEsperado) {
 
 // Un borrador tal como lo deja la pantalla: todo string, con campos de UI.
 const borradorTipico = {
+  clienteId: "",
   clienteNombre: "  Juan Pérez  ",
   clienteContacto: "  11-5555-4444  ",
   clienteDireccion: "  Av. Siempre Viva 742  ",
@@ -81,6 +83,7 @@ caso("convierte strings a números y limpia espacios", () => {
   const r = construirPedidoDto(borradorTipico);
   if (!r.success) throw new Error(primerMensaje(r.error));
   igual(r.data, {
+    cliente_id: null,
     cliente_nombre: "Juan Pérez",
     cliente_contacto: "11-5555-4444",
     cliente_direccion: "Av. Siempre Viva 742",
@@ -130,6 +133,19 @@ caso("descarta un total inyectado en la cabecera", () => {
   const r = construirPedidoDto({ ...borradorTipico, total: 1, estado: "entregado" });
   if ("total" in r.data || "estado" in r.data) throw new Error("se filtró un campo inyectado");
 });
+
+caso("clienteId vacío → cliente_id null", () => {
+  const r = construirPedidoDto({ ...borradorTipico, clienteId: "" });
+  igual(r.data.cliente_id, null, "no convirtió a null");
+});
+
+caso("clienteId '5' → cliente_id 5 (número)", () => {
+  const r = construirPedidoDto({ ...borradorTipico, clienteId: "5" });
+  igual(r.data.cliente_id, 5, "no convirtió a número");
+});
+
+caso("clienteId inválido se rechaza", () =>
+  rechaza(construirPedidoDto({ ...borradorTipico, clienteId: "-3" }), "cliente"));
 
 console.log("\n=== B. DTO del pedido: rechaza lo inválido ===");
 
@@ -293,6 +309,56 @@ caso("acepta varias fotos legítimas y descarta las vacías", () => {
   igual(r.data.fotos, ["/uploads/a3f9c2.png", "/uploads/b7d1e0.webp"], "no limpió las fotos");
 });
 
+console.log("\n=== C2. DTO de cliente ===");
+
+const clienteFormTipico = {
+  nombre: "  Ferretería Norte  ",
+  contacto: "  3794-111  ",
+  direccion: "",
+  tipo_factura: "",
+  email: "",
+  localidad: "  Resistencia  ",
+  cuit: "",
+  notas: "",
+};
+
+caso("arma el cuerpo del cliente y normaliza vacíos a null", () => {
+  const r = construirClienteDto(clienteFormTipico);
+  igual(
+    r.data,
+    {
+      nombre: "Ferretería Norte",
+      contacto: "3794-111",
+      direccion: null,
+      tipo_factura: null,
+      email: null,
+      localidad: "Resistencia",
+      cuit: null,
+      notas: null,
+    },
+    "cuerpo inesperado"
+  );
+});
+
+caso("rechaza cliente sin nombre", () =>
+  rechaza(construirClienteDto({ ...clienteFormTipico, nombre: "   " }), "El nombre"));
+
+caso("acepta tipo de factura válido", () => {
+  const r = construirClienteDto({ ...clienteFormTipico, tipo_factura: "A" });
+  igual(r.data.tipo_factura, "A", "no conservó el tipo de factura");
+});
+
+caso("rechaza tipo de factura inválido", () =>
+  rechaza(construirClienteDto({ ...clienteFormTipico, tipo_factura: "Z" }), "tipo de factura"));
+
+caso("rechaza correo mal formado", () =>
+  rechaza(construirClienteDto({ ...clienteFormTipico, email: "no-es-correo" }), "correo"));
+
+caso("descarta un campo inyectado", () => {
+  const r = construirClienteDto({ ...clienteFormTipico, activo: false, id: 9 });
+  if ("activo" in r.data || "id" in r.data) throw new Error("se filtró un campo inyectado");
+});
+
 console.log("\n=== D. Borrador de localStorage ===");
 
 caso("JSON roto devuelve null", () => {
@@ -452,7 +518,7 @@ caso("rechaza un catálogo con 0 páginas", () => {
 console.log("\n=== F. Validación de respuestas de la API ===");
 
 const pedidoValido = {
-  id: 1, codigo: "P-2026-0001", cliente_nombre: "Juan", cliente_contacto: "11-5555-4444",
+  id: 1, codigo: "P-2026-0001", cliente_id: 7, cliente_nombre: "Juan", cliente_contacto: "11-5555-4444",
   cliente_direccion: "Calle Falsa 123", cliente_tipo_factura: "B", cliente_email: null,
   fecha_pedido: "2026-08-19", fecha_prometida: "2026-08-25", estado: "pendiente",
   total: 580000, notas: null, comprobante_url: "/uploads/comprobantes/P-2026-0001.pdf",

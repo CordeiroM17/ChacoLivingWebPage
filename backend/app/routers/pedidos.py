@@ -106,7 +106,11 @@ def listar_pedidos(
 
 
 @router.post("", response_model=schemas.PedidoDetalleOut, status_code=201)
-def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
+def crear_pedido(
+    datos: schemas.PedidoCreate,
+    db: Session = Depends(get_db),
+    usuario: str = Depends(require_token),
+):
     # Los formatos y rangos ya los validó Pydantic (schemas.py). Acá va lo que
     # solo se puede verificar contra la base: que los modelos existan, que estén
     # activos y que el total entre en la columna.
@@ -123,6 +127,40 @@ def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
             status_code=422,
             detail="La entrega prometida no puede ser anterior a la fecha del pedido",
         )
+
+    # Cliente de la lista global:
+    #  - si el frontend mandó `cliente_id`, tiene que existir y estar activo;
+    #  - si no, se busca por nombre (case-insensitive) y se linkea al que haya,
+    #    o se crea uno nuevo — así la lista se va poblando sola al tomar pedidos.
+    # Los `cliente_*` del pedido siguen siendo el snapshot que manda el frontend
+    # (prellenado desde ese cliente pero editable en el formulario).
+    if datos.cliente_id is not None:
+        cliente = db.get(models.Cliente, datos.cliente_id)
+        if cliente is None:
+            raise HTTPException(status_code=422, detail="El cliente elegido no existe")
+        if not cliente.activo:
+            raise HTTPException(
+                status_code=422, detail="El cliente elegido está desactivado"
+            )
+        cliente_id = cliente.id
+    else:
+        cliente = db.scalar(
+            select(models.Cliente).where(
+                func.lower(func.btrim(models.Cliente.nombre))
+                == datos.cliente_nombre.lower()
+            )
+        )
+        if cliente is None:
+            cliente = models.Cliente(
+                nombre=datos.cliente_nombre,
+                contacto=datos.cliente_contacto,
+                direccion=datos.cliente_direccion,
+                tipo_factura=datos.cliente_tipo_factura,
+                email=datos.cliente_email,
+            )
+            db.add(cliente)
+            db.flush()
+        cliente_id = cliente.id
 
     modelo_ids = {item.modelo_id for item in datos.items}
     modelos_db = db.scalars(
@@ -160,11 +198,13 @@ def crear_pedido(datos: schemas.PedidoCreate, db: Session = Depends(get_db)):
 
     pedido = models.Pedido(
         codigo=codigo,
+        cliente_id=cliente_id,
         cliente_nombre=datos.cliente_nombre,
         cliente_contacto=datos.cliente_contacto,
         cliente_direccion=datos.cliente_direccion,
         cliente_tipo_factura=datos.cliente_tipo_factura,
         cliente_email=datos.cliente_email,
+        creado_por=usuario,
         fecha_pedido=fecha_pedido,
         fecha_prometida=datos.fecha_prometida,
         notas=datos.notas,

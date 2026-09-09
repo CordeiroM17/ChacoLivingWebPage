@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import UPLOADS_DIR
 from .errores import traducir
-from .routers import auth, catalogos, fotos, modelos, pedidos
+from .routers import auth, catalogos, clientes, fotos, modelos, pedidos
 
 app = FastAPI(title="Fábrica de sillones - API de pedidos")
 
@@ -50,6 +50,7 @@ async def cache_uploads(request: Request, call_next):
     return respuesta
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(clientes.router, prefix="/api")
 app.include_router(modelos.router, prefix="/api")
 app.include_router(pedidos.router, prefix="/api")
 app.include_router(fotos.router, prefix="/api")

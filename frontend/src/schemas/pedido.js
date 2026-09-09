@@ -50,6 +50,7 @@ const itemRespuestaSchema = z.object({
 export const pedidoResumenSchema = z.object({
   id: z.number().int().positive(),
   codigo: z.string(),
+  cliente_id: z.number().int().positive().nullable(),
   cliente_nombre: z.string(),
   cliente_contacto: z.string(),
   cliente_direccion: z.string(),
@@ -94,6 +95,7 @@ const itemApiSchema = z.strictObject({
 
 const pedidoApiSchema = z
   .strictObject({
+    cliente_id: z.number().int().positive().nullable(),
     cliente_nombre: z.string().min(1).max(MAX_NOMBRE),
     cliente_contacto: z.string().min(1).max(MAX_CONTACTO),
     cliente_direccion: z.string().min(1).max(MAX_DIRECCION),
@@ -171,8 +173,22 @@ export const itemDtoSchema = z
   })
   .pipe(itemApiSchema);
 
+// El link al cliente elegido de la lista: "" / null / ausente → null; "5" → 5.
+const clienteIdOpcional = z
+  .union([z.string(), z.number()])
+  .nullish()
+  .transform((v) => {
+    const s = String(v ?? "").trim();
+    return s === "" ? null : Number(s);
+  })
+  .refine(
+    (v) => v === null || (Number.isInteger(v) && v > 0),
+    "El cliente elegido no es válido."
+  );
+
 /** Los campos del paso 1 del formulario. */
 const clienteSchema = z.object({
+  clienteId: clienteIdOpcional,
   clienteNombre: textoObligatorio(MAX_NOMBRE, "El nombre del cliente"),
   clienteContacto: textoObligatorio(MAX_CONTACTO, "El contacto"),
   clienteDireccion: textoObligatorio(MAX_DIRECCION, "La dirección de envío"),
@@ -213,6 +229,7 @@ export const pedidoDtoSchema = clienteSchema
     items: itemsSchema,
   })
   .transform((borrador) => ({
+    cliente_id: borrador.clienteId,
     cliente_nombre: borrador.clienteNombre,
     cliente_contacto: borrador.clienteContacto,
     cliente_direccion: borrador.clienteDireccion,
