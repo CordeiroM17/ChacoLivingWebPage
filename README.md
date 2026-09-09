@@ -209,14 +209,52 @@ reiniciá manualmente el proceso después de cada cambio de código.
 
 ## Ramas
 
-- `main`: lo que está desplegado (o listo para desplegarse). No se trabaja
-  directo acá.
-- `dev`: rama de trabajo para lo nuevo. Se mergea a `main` cuando algo queda
-  probado y listo.
+- `main`: lo que está desplegado en producción. No se trabaja directo acá.
+- `dev`: rama de integración (entorno de pruebas en Railway/Vercel). No se
+  commitea directo tampoco.
+- `fase/N-<slug>`: una rama por unidad de trabajo, sale de `dev`.
 
-Pensado para conectar cada rama a su propio entorno en Railway/Vercel (`dev` →
-entorno de pruebas, `main` → producción), para poder probar cambios sin tocar
-lo que ya funciona.
+Cada rama está conectada a su propio entorno en Railway/Vercel (`dev` → pruebas,
+`main` → producción), para probar cambios sin tocar lo que ya funciona.
+
+## Integración continua (GitHub Actions)
+
+`.github/workflows/ci.yml` corre en cada Pull Request hacia `dev` y `main`, y en
+cada push a esas ramas. Tres jobs:
+
+- **`frontend`**: `npm ci` → `npm run lint` → `npm run test:schemas` → `npm run build`.
+- **`backend`**: instala `requirements.txt` + `requirements-dev.txt`, verifica que
+  `import app.main` no explote, y corre `pytest` (contra un Postgres de servicio)
+  cuando existe `backend/tests/`.
+- **`sql`**: aplica `sql/schema.sql` + `sql/seed.sql` en una base limpia; y las
+  migraciones nuevas dos veces, para probar que son idempotentes.
+
+El CI usa Node 22 y Python 3.12 (lo que se despliega), no lo que tengas instalado
+localmente. Después de tocar `frontend/package.json`, correr `npm install` para
+re-sincronizar `package-lock.json` o `npm ci` falla en el CI.
+
+### Flujo de trabajo
+
+1. `git checkout dev && git pull`
+2. `git checkout -b fase/N-<slug>`
+3. Trabajar, commitear, `git push -u origin fase/N-<slug>`
+4. Abrir el Pull Request hacia `dev`. Esperar el CI en verde.
+5. Merge. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**)
+   y redesplegar.
+
+Promover a producción: PR `dev → main` → CI verde → merge → correr las
+migraciones pendientes en el Postgres de `main` antes del redeploy.
+
+### Configuración una vez en GitHub (la hace el dueño del repo)
+
+Settings → Branches → regla de protección para `dev` **y** `main`:
+
+- Require a pull request before merging
+- Require status checks to pass: `frontend`, `backend`, `sql`
+- (`main`) Require branches to be up to date before merging
+
+Las reglas se pueden activar recién **después** del primer merge del workflow
+(GitHub necesita haber visto correr esos checks al menos una vez).
 
 ## Deploy
 
