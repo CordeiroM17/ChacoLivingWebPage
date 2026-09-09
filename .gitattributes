@@ -1,0 +1,3 @@
+# El hook corre con sh: tiene que quedar con saltos de línea LF aunque el repo
+# se clone en Windows, si no `sh` falla con "bad interpreter".
+.githooks/pre-push text eol=lf

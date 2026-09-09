@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   MAX_DESCRIPCION,
   MAX_FOTO_URL,
+  MAX_FOTOS_MODELO,
   MAX_MEDIDA_M,
   MAX_MONTO,
   MAX_NOMBRE,
@@ -20,6 +21,9 @@ export const modeloSchema = z.object({
   profundidad_m: z.number(),
   altura_m: z.number(),
   ancho_m: z.number(),
+  fotos: z.array(z.string()),
+  // Portada que arma el backend (fotos[0] o null). Se conserva porque la lista
+  // de modelos, los ítems del pedido y el comprobante la leen tal cual.
   foto_url: z.string().nullable(),
   activo: z.boolean(),
   creado_en: z.string(),
@@ -29,13 +33,17 @@ export const listaModelosSchema = z.array(modeloSchema);
 
 // ---------- Lo que le mandamos a la API ----------
 
-const fotoUrlDto = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((valor) => (typeof valor === "string" ? valor.trim() : ""))
-  .transform((valor) => valor || null)
+const fotosDto = z
+  .array(z.string())
+  .optional()
+  .transform((arr) => (arr ?? []).map((s) => s.trim()).filter(Boolean))
   .refine(
-    (valor) => valor === null || (valor.length <= MAX_FOTO_URL && PATRON_FOTO.test(valor)),
-    "La foto debe ser una imagen subida a este servidor."
+    (arr) => arr.length <= MAX_FOTOS_MODELO,
+    `No puede haber más de ${MAX_FOTOS_MODELO} fotos por modelo.`
+  )
+  .refine(
+    (arr) => arr.every((s) => s.length <= MAX_FOTO_URL && PATRON_FOTO.test(s)),
+    "Cada foto debe ser una imagen subida a este servidor."
   );
 
 /**
@@ -52,7 +60,7 @@ export const modeloDtoSchema = z.object({
   profundidad_m: medidaMetros("La profundidad", MAX_MEDIDA_M),
   altura_m: medidaMetros("La altura", MAX_MEDIDA_M),
   ancho_m: medidaMetros("El ancho", MAX_MEDIDA_M),
-  foto_url: fotoUrlDto,
+  fotos: fotosDto,
 });
 
 /** Arma el DTO desde el estado del formulario. Devuelve el resultado de `safeParse`. */

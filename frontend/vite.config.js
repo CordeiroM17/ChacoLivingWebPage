@@ -7,10 +7,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // 'prompt': la app avisa "hay una versión nueva" y el usuario decide
-      // cuándo recargar. Se toman pedidos en esta pantalla: una recarga
-      // automática a mitad de carga perdería datos del formulario.
-      registerType: 'prompt',
+      // 'autoUpdate': la versión nueva se aplica sola en la próxima carga, sin
+      // avisos en pantalla — la instalación y las actualizaciones las coordina
+      // el dueño por fuera de la app. El borrador de "Tomar pedido" vive en
+      // localStorage, así que una recarga no pierde lo que se estaba cargando.
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',

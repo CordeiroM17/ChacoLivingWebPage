@@ -15,6 +15,7 @@ MAX_ITEMS = 50  # ítems distintos por pedido
 MAX_DIRECCION = 300
 MAX_EMAIL = 200
 MAX_MEDIDA_M = 5  # ningún sillón de fábrica llega a 5 metros de lado
+MAX_FOTOS_MODELO = 12  # de sobra para mostrar un modelo desde varios ángulos
 
 # Los uploads siempre devuelven /uploads/{uuid}.{ext}. Aceptar cualquier string
 # permitiría apuntar la foto de un modelo a un dominio externo.
@@ -31,12 +32,20 @@ PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 SOLO_LO_DECLARADO = ConfigDict(extra="forbid")
 
 
-def _validar_foto_url(valor: str | None) -> str | None:
-    if valor is None or valor == "":
+def _validar_fotos(valor: list[str] | None) -> list[str] | None:
+    # None solo llega desde ModeloUpdate ("no toques las fotos"); se deja pasar.
+    if valor is None:
         return None
-    if not PATRON_FOTO.match(valor):
-        raise ValueError("debe ser una imagen subida a este servidor")
-    return valor
+    if len(valor) > MAX_FOTOS_MODELO:
+        raise ValueError(f"no pueden ser más de {MAX_FOTOS_MODELO} por modelo")
+    limpias: list[str] = []
+    for url in valor:
+        limpio = (url or "").strip()
+        if not PATRON_FOTO.match(limpio):
+            raise ValueError("deben ser imágenes subidas a este servidor")
+        if limpio not in limpias:  # la misma foto dos veces no aporta nada
+            limpias.append(limpio)
+    return limpias
 
 
 def _texto_obligatorio(valor: str) -> str:
@@ -74,11 +83,12 @@ class ModeloBase(BaseModel):
     profundidad_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     altura_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     ancho_m: float = Field(gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
-    foto_url: str | None = Field(default=None, max_length=300)
+    # Lista de rutas `/uploads/...` en orden; la primera es la portada.
+    fotos: list[str] = Field(default_factory=list)
 
     _limpiar_nombre = field_validator("nombre")(_texto_obligatorio)
     _limpiar_descripcion = field_validator("descripcion")(_texto_opcional)
-    _validar_foto = field_validator("foto_url")(_validar_foto_url)
+    _validar_fotos = field_validator("fotos")(_validar_fotos)
 
 
 class ModeloCreate(ModeloBase):
@@ -94,7 +104,8 @@ class ModeloUpdate(BaseModel):
     profundidad_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     altura_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
     ancho_m: float | None = Field(default=None, gt=0, le=MAX_MEDIDA_M, allow_inf_nan=False)
-    foto_url: str | None = Field(default=None, max_length=300)
+    # None = no se tocan; [] = se quitan todas.
+    fotos: list[str] | None = None
     activo: bool | None = None
 
     @field_validator("nombre")
@@ -103,7 +114,7 @@ class ModeloUpdate(BaseModel):
         return _texto_obligatorio(valor) if valor is not None else None
 
     _limpiar_descripcion = field_validator("descripcion")(_texto_opcional)
-    _validar_foto = field_validator("foto_url")(_validar_foto_url)
+    _validar_fotos = field_validator("fotos")(_validar_fotos)
 
 
 class ModeloOut(BaseModel):
@@ -116,6 +127,9 @@ class ModeloOut(BaseModel):
     profundidad_m: float
     altura_m: float
     ancho_m: float
+    fotos: list[str]
+    # Portada (fotos[0] o None). Redundante con `fotos` pero lo consumen la
+    # lista de modelos, los ítems del pedido y el comprobante sin cambios.
     foto_url: str | None
     activo: bool
     creado_en: datetime

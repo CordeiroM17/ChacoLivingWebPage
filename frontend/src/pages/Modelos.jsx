@@ -4,8 +4,10 @@ import { fotosApi, fotoUrl } from "../api/fotos";
 import { useCatalogo } from "../context/catalogo.js";
 import { primerMensaje } from "../schemas/comunes.js";
 import { construirModeloDto, modeloActivoDtoSchema } from "../schemas/modelo.js";
+import { MAX_FOTOS_MODELO } from "../schemas/limites.js";
 import { formatoMoneda, formatoMedidas } from "../utils/format";
 import Aviso from "../components/Aviso";
+import ModeloDetalle from "../components/ModeloDetalle";
 
 function formularioVacio() {
   return {
@@ -15,8 +17,12 @@ function formularioVacio() {
     profundidad_m: "",
     altura_m: "",
     ancho_m: "",
-    foto_url: "",
+    fotos: [],
   };
+}
+
+function irArriba() {
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 export default function Modelos() {
@@ -27,13 +33,25 @@ export default function Modelos() {
   const [editandoId, setEditandoId] = useState(null);
   const [form, setForm] = useState(formularioVacio());
   const [mostrandoNuevo, setMostrandoNuevo] = useState(false);
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [fotosPendientes, setFotosPendientes] = useState(0);
+  const [detalleId, setDetalleId] = useState(null);
+
+  // El modelo del popup se deriva de la lista viva: si se lo edita o se lo
+  // activa/desactiva desde adentro, el popup refleja el cambio sin recargar.
+  const modeloDetalle = detalleId ? modelos.find((m) => m.id === detalleId) : null;
 
   useEffect(() => {
     if (error) setAviso({ tipo: "error", mensaje: error });
   }, [error]);
 
+  // Si el modelo abierto en el popup desaparece de la lista (caso raro), se
+  // cierra en vez de quedar mostrando un fantasma.
+  useEffect(() => {
+    if (detalleId && !modelos.some((m) => m.id === detalleId)) setDetalleId(null);
+  }, [detalleId, modelos]);
+
   function empezarEdicion(modelo) {
+    setDetalleId(null);
     setEditandoId(modelo.id);
     setMostrandoNuevo(false);
     setForm({
@@ -43,14 +61,18 @@ export default function Modelos() {
       profundidad_m: String(modelo.profundidad_m),
       altura_m: String(modelo.altura_m),
       ancho_m: String(modelo.ancho_m),
-      foto_url: modelo.foto_url || "",
+      fotos: [...(modelo.fotos || [])],
     });
+    // El formulario aparece arriba de todo: llevar la vista ahí, igual que
+    // "Tomar pedido" al pasar de un paso al siguiente.
+    irArriba();
   }
 
   function empezarNuevo() {
     setEditandoId(null);
     setMostrandoNuevo(true);
     setForm(formularioVacio());
+    irArriba();
   }
 
   function cancelar() {
@@ -59,17 +81,46 @@ export default function Modelos() {
     setForm(formularioVacio());
   }
 
-  async function seleccionarFoto(archivo) {
-    if (!archivo) return;
-    setSubiendoFoto(true);
-    try {
-      const { url } = await fotosApi.subir(archivo);
-      setForm((f) => ({ ...f, foto_url: url }));
-    } catch (err) {
-      setAviso({ tipo: "error", mensaje: err.message || "No se pudo subir la foto." });
-    } finally {
-      setSubiendoFoto(false);
+  async function seleccionarFotos(archivos) {
+    const lista = Array.from(archivos || []);
+    if (lista.length === 0) return;
+
+    const lugar = MAX_FOTOS_MODELO - form.fotos.length;
+    if (lugar <= 0) {
+      setAviso({
+        tipo: "error",
+        mensaje: `Un modelo no puede tener más de ${MAX_FOTOS_MODELO} fotos.`,
+      });
+      return;
     }
+    const aSubir = lista.slice(0, lugar);
+    setFotosPendientes(aSubir.length);
+    setAviso(null);
+
+    for (const archivo of aSubir) {
+      try {
+        const { url } = await fotosApi.subir(archivo);
+        setForm((f) => ({ ...f, fotos: [...f.fotos, url] }));
+      } catch (err) {
+        setAviso({ tipo: "error", mensaje: err.message || "No se pudo subir una foto." });
+      } finally {
+        setFotosPendientes((n) => n - 1);
+      }
+    }
+    if (lista.length > aSubir.length) {
+      setAviso({
+        tipo: "error",
+        mensaje: `Se agregaron ${aSubir.length}: un modelo no puede tener más de ${MAX_FOTOS_MODELO} fotos.`,
+      });
+    }
+  }
+
+  function quitarFoto(url) {
+    setForm((f) => ({ ...f, fotos: f.fotos.filter((u) => u !== url) }));
+  }
+
+  function hacerPortada(url) {
+    setForm((f) => ({ ...f, fotos: [url, ...f.fotos.filter((u) => u !== url)] }));
   }
 
   async function guardar(e) {
@@ -112,12 +163,15 @@ export default function Modelos() {
     }
   }
 
+  const subiendoFotos = fotosPendientes > 0;
+  const editando = mostrandoNuevo || editandoId;
+
   return (
     <div className="pagina vista-entra">
       <h1>Modelos</h1>
       <Aviso tipo={aviso?.tipo} mensaje={aviso?.mensaje} />
 
-      {(mostrandoNuevo || editandoId) && (
+      {editando && (
         <form onSubmit={guardar} className="tarjeta">
           <h2>{editandoId ? "Editar modelo" : "Nuevo modelo"}</h2>
           <label className="campo">
@@ -187,47 +241,67 @@ export default function Modelos() {
 
           <div className="campo campo-fotos">
             <div className="fotos-encabezado">
-              <span>Foto (opcional)</span>
-              <label className="boton-secundario boton-fotos">
-                {form.foto_url ? "Cambiar foto" : "+ Agregar foto"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    seleccionarFoto(e.target.files[0]);
-                    e.target.value = "";
-                  }}
-                  hidden
-                />
-              </label>
+              <span>Fotos (opcional) · la primera es la portada</span>
+              {form.fotos.length < MAX_FOTOS_MODELO && (
+                <label className="boton-secundario boton-fotos">
+                  + Agregar fotos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      seleccionarFotos(e.target.files);
+                      e.target.value = "";
+                    }}
+                    hidden
+                  />
+                </label>
+              )}
             </div>
-            {(form.foto_url || subiendoFoto) && (
+            {(form.fotos.length > 0 || subiendoFotos) && (
               <div className="fotos-grilla">
-                <div className={`foto-miniatura${subiendoFoto ? " foto-subiendo" : ""}`}>
-                  {form.foto_url && <img src={fotoUrl(form.foto_url)} alt="" />}
-                  {form.foto_url && !subiendoFoto && (
+                {form.fotos.map((url, idx) => (
+                  <div className="foto-miniatura" key={url}>
+                    <img src={fotoUrl(url)} alt="" />
+                    {idx === 0 && <span className="foto-portada-badge">Portada</span>}
+                    {idx !== 0 && (
+                      <button
+                        type="button"
+                        className="foto-portada-set"
+                        onClick={() => hacerPortada(url)}
+                        aria-label="Hacer portada"
+                        title="Hacer portada"
+                      >
+                        ★
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="foto-quitar"
-                      onClick={() => setForm((f) => ({ ...f, foto_url: "" }))}
+                      onClick={() => quitarFoto(url)}
                       aria-label="Quitar foto"
                     >
                       ×
                     </button>
-                  )}
-                </div>
+                  </div>
+                ))}
+                {Array.from({ length: fotosPendientes }).map((_, i) => (
+                  <div key={`pendiente-${i}`} className="foto-miniatura foto-subiendo" />
+                ))}
               </div>
             )}
           </div>
 
           <div className="fila-2">
-            <button type="submit" className="boton-primario">Guardar</button>
+            <button type="submit" className="boton-primario" disabled={subiendoFotos}>
+              {subiendoFotos ? "Subiendo fotos…" : "Guardar"}
+            </button>
             <button type="button" className="boton-texto" onClick={cancelar}>Cancelar</button>
           </div>
         </form>
       )}
 
-      {!mostrandoNuevo && !editandoId && (
+      {!editando && (
         <button className="boton-primario" onClick={empezarNuevo}>+ Nuevo modelo</button>
       )}
 
@@ -240,15 +314,24 @@ export default function Modelos() {
             <span>Precio</span>
             <span>Medidas (A×Al×P)</span>
             <span>Estado</span>
-            <span>Acciones</span>
           </div>
           <div className="lista-pedidos">
             {modelos.map((m) => (
-              <div key={m.id} className={`tarjeta modelo-fila${m.activo ? "" : " modelo-inactivo"}`}>
+              <button
+                type="button"
+                key={m.id}
+                className={`tarjeta modelo-fila${m.activo ? "" : " modelo-inactivo"}`}
+                onClick={() => setDetalleId(m.id)}
+              >
                 <div className="modelo-fila-info">
                   <div className="modelo-nombre-celda">
                     {m.foto_url ? (
-                      <img className="modelo-foto-mini" src={fotoUrl(m.foto_url)} alt="" />
+                      <span className="modelo-foto-envoltura">
+                        <img className="modelo-foto-mini" src={fotoUrl(m.foto_url)} alt="" />
+                        {m.fotos.length > 1 && (
+                          <span className="modelo-foto-contador">{m.fotos.length}</span>
+                        )}
+                      </span>
                     ) : (
                       <div className="modelo-foto-mini modelo-foto-vacia" aria-hidden="true" />
                     )}
@@ -260,16 +343,20 @@ export default function Modelos() {
                     {m.activo ? "Activo" : "Inactivo"}
                   </span>
                 </div>
-                <div className="modelo-fila-acciones">
-                  <button className="boton-texto" onClick={() => empezarEdicion(m)}>Editar</button>
-                  <button className="boton-texto" onClick={() => alternarActivo(m)}>
-                    {m.activo ? "Desactivar" : "Activar"}
-                  </button>
-                </div>
-              </div>
+                <span className="modelo-fila-chevron" aria-hidden="true">›</span>
+              </button>
             ))}
           </div>
         </div>
+      )}
+
+      {modeloDetalle && (
+        <ModeloDetalle
+          modelo={modeloDetalle}
+          onCerrar={() => setDetalleId(null)}
+          onEditar={empezarEdicion}
+          onAlternarActivo={alternarActivo}
+        />
       )}
     </div>
   );

@@ -104,18 +104,19 @@ Queda disponible en `http://localhost:5173`.
 ### 3.1 Instalar en la pantalla de inicio (PWA)
 
 La app es una PWA instalable. Requiere HTTPS (Vercel ya lo da) o `localhost`.
+No muestra ningún aviso de instalación adentro de la app —la coordina el dueño
+por fuera—; se instala desde el navegador:
 
-- **Android / Chrome**: aparece el banner "Instalá Chaco Living" con botón
-  **Instalar**. Si se descartó, se puede instalar desde el menú ⋮ → "Instalar
-  aplicación" / "Agregar a pantalla principal".
-- **iPhone / iPad (Safari)**: no hay botón automático. Compartir (⎋) → **Agregar
-  a inicio**. La app muestra esa instrucción en el banner.
+- **Android / Chrome**: menú ⋮ → "Instalar aplicación" / "Agregar a pantalla
+  principal".
+- **iPhone / iPad (Safari)**: Compartir (⎋) → **Agregar a inicio**.
 - Una vez instalada abre a pantalla completa (sin barra del navegador) y respeta
   el notch / indicador de inicio del iPhone.
 
-**Actualizaciones**: cuando se despliega una versión nueva, la app muestra abajo
-"Hay una versión nueva → Actualizar". No recarga sola (se estaría cargando un
-pedido). Config en `frontend/vite.config.js` (`registerType: 'prompt'`).
+**Actualizaciones**: `registerType: 'autoUpdate'` en `frontend/vite.config.js`.
+La versión nueva se aplica sola en la próxima carga, sin avisos ni botón. El
+borrador de "Tomar pedido" vive en `localStorage`, así que una recarga no pierde
+lo que se estaba cargando.
 
 **Íconos**: se generan desde un único glifo con `npm run icons`
 (`frontend/scripts/generar-iconos.mjs`). Editar ahí si cambia la marca y volver
@@ -165,15 +166,19 @@ python -c "import secrets; print(secrets.token_hex(32))"
 - Sistema de diseño documentado en `PRODUCT.md` (contexto de producto) y
   `DESIGN.md` (paleta, tipografía, componentes) usando la skill `impeccable`
   instalada a nivel de proyecto en `.claude/skills/impeccable`.
-- Cada modelo del catálogo admite una foto opcional (`foto_url`), subida desde
-  "Modelos". Se guarda en disco en `backend/app/uploads/` (no versionado) y se
-  sirve en `/uploads/<archivo>`, con `Cache-Control` de un año (nunca se
-  sobrescribe un archivo, cada subida tiene nombre nuevo). La ruta es
-  configurable con la variable `UPLOADS_DIR`: sin ella, cae en
-  `backend/app/uploads/` como en desarrollo local; en Railway hay que
-  apuntarla a un volumen persistente, porque el disco del contenedor es
-  efímero y se borra en cada redeploy (ver CLAUDE.md sección 9, punto 4, para
-  la alternativa de storage S3-compatible).
+- Cada modelo del catálogo admite varias fotos opcionales (`modelos.fotos`,
+  array de rutas; la primera es la portada), subidas desde "Modelos". Se
+  guardan en disco en `backend/app/uploads/` (no versionado) y se sirven en
+  `/uploads/<archivo>`, con `Cache-Control` de un año (nunca se sobrescribe un
+  archivo, cada subida tiene nombre nuevo). La ruta es configurable con la
+  variable `UPLOADS_DIR`: sin ella, cae en `backend/app/uploads/` como en
+  desarrollo local; en Railway hay que apuntarla a un volumen persistente,
+  porque el disco del contenedor es efímero y se borra en cada redeploy (ver
+  CLAUDE.md sección 9, punto 4, para la alternativa de storage S3-compatible).
+  El backend expone además `foto_url` (= `fotos[0]` o `null`) para todo lo que
+  muestra una sola foto: la miniatura de la lista, los ítems del pedido y el
+  comprobante en PDF. Tocar una fila en "Modelos" abre un popup con el detalle
+  completo del modelo; Editar y Activar/Desactivar viven ahí adentro.
 - "Tomar pedido" y el detalle de "Ver pedidos" muestran la foto del modelo
   elegido en cada ítem (no se suben fotos por ítem/pedido). El paso
   "Confirmar" del wizard lista los ítems en formato factura (modelo, foto,
@@ -202,16 +207,42 @@ puede matar sin reiniciar Windows. Si eso pasa: cambiá de puerto (`--port`) y
 actualizá `frontend/.env` (`VITE_API_BASE`), o corré uvicorn sin `--reload` y
 reiniciá manualmente el proceso después de cada cambio de código.
 
-## Ramas
+## Ramas y flujo de trabajo
 
-- `main`: lo que está desplegado (o listo para desplegarse). No se trabaja
-  directo acá.
-- `dev`: rama de trabajo para lo nuevo. Se mergea a `main` cuando algo queda
-  probado y listo.
+- `main`: lo que está desplegado en producción.
+- `dev`: rama de integración (entorno de pruebas en Railway/Vercel).
+- `fase/N-<slug>`: una rama por unidad de trabajo, sale de `dev`.
 
-Pensado para conectar cada rama a su propio entorno en Railway/Vercel (`dev` →
-entorno de pruebas, `main` → producción), para poder probar cambios sin tocar
-lo que ya funciona.
+Cada rama está conectada a su propio entorno en Railway/Vercel (`dev` → pruebas,
+`main` → producción), para probar cambios sin tocar lo que ya funciona.
+
+Flujo:
+
+1. `git checkout dev && git pull`
+2. `git checkout -b fase/N-<slug>`
+3. Trabajar, commitear. El hook `pre-push` corre al pushear (ver abajo).
+4. Mergear a `dev` (localmente: `git checkout dev && git merge fase/N-<slug>`),
+   push, y borrar la rama.
+5. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**) y
+   redesplegar.
+
+Promover a producción: mergear `dev` en `main`, push, correr las migraciones
+pendientes en el Postgres de `main`, redeploy.
+
+### Chequeo antes de pushear — hook `pre-push`
+
+`.githooks/pre-push` corre lint + `test:schemas` + build del frontend y un chequeo
+de sintaxis del backend **antes** de cada `git push`. Instalar una vez por clon:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Para saltearlo en una emergencia: `git push --no-verify`.
+
+Los tests de backend (`pytest`, contra un Postgres local) se corren a mano:
+`cd backend && pytest` (necesita `pip install -r requirements-dev.txt` y la base
+de Docker levantada).
 
 ## Deploy
 
@@ -232,6 +263,16 @@ psql "<DATABASE_URL que da Railway>" -f sql/seed.sql
 > administrado de Railway: allá la base arranca vacía. Correr `schema.sql`
 > **entero**, que además de las tablas crea la extensión `pg_trgm` y los índices
 > del buscador.
+
+> **Base nueva:** `schema.sql` ya trae todo el esquema actual — no corras
+> ninguna migración de `sql/`. Las `sql/migracion_*.sql` son solo para
+> **actualizar una base que ya tenía datos** (p. ej. el entorno `dev` que se
+> creó con un esquema anterior). Cada una corre **una vez**, va dentro de una
+> transacción y es idempotente. En orden histórico:
+> `migracion_cliente_extendido.sql`, `migracion_medidas_modelo.sql`,
+> `migracion_medidas_item.sql`, `migracion_produccion_0_0_3.sql` (junta las tres
+> anteriores), `limpieza_medidas_cm.sql`, `migracion_fotos_modelo.sql` (varias
+> fotos por modelo, 0.0.4).
 
 ### 2. Backend en Railway
 

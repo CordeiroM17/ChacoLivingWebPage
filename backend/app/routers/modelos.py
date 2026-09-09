@@ -37,9 +37,11 @@ def editar_modelo(
         raise HTTPException(status_code=404, detail="Modelo no encontrado")
 
     for campo, valor in datos.model_dump(exclude_unset=True).items():
-        # descripcion y foto_url sí se pueden vaciar; el resto son NOT NULL en la
-        # base, así que un null explícito se ignora en vez de reventar con un 500.
-        if valor is None and campo not in ("descripcion", "foto_url"):
+        # descripcion se puede vaciar (null); el resto son NOT NULL en la base,
+        # así que un null explícito se ignora en vez de reventar con un 500.
+        # `fotos` nunca llega como null acá: el validador lo pasa a lista, y []
+        # es un valor válido (quitar todas las fotos).
+        if valor is None and campo != "descripcion":
             continue
         setattr(modelo, campo, valor)
 
