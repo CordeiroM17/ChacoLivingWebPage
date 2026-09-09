@@ -6,3 +6,8 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# impeccable (hook de diseño): la config compartida sí se versiona; el resto no
+.impeccable/hook.cache.json
+.impeccable/hook.pending.json
+.impeccable/config.local.json

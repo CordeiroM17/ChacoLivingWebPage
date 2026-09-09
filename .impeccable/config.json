@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-radius",
+        "value": "3px",
+        "createdAt": "2026-09-09T02:55:07.221Z",
+        "reason": "Barra de 3px del item activo del Nav + offsets de botones sobre miniaturas; pre-existente, confirmado intencional"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "createdAt": "2026-09-09T02:55:07.293Z",
+        "reason": "Badges chicos sobre miniaturas de foto (Portada, contador); confirmado intencional"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "12px",
+        "createdAt": "2026-09-09T02:55:07.362Z",
+        "reason": "Boton estrella sobre miniatura de foto; confirmado intencional"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "14px",
+        "createdAt": "2026-09-09T02:55:07.437Z",
+        "reason": "Boton cerrar/quitar foto sobre miniatura; confirmado intencional"
+      }
+    ]
+  }
+}
