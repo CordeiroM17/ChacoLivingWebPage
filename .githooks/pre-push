@@ -1,0 +1,22 @@
+#!/bin/sh
+# Corre los checks rápidos antes de dejar pushear, para no subir código roto.
+# Instalar una vez:  git config core.hooksPath .githooks
+# Saltear en una emergencia:  git push --no-verify
+
+set -e
+raiz="$(git rev-parse --show-toplevel)"
+
+echo "pre-push: frontend (lint + test:schemas + build)"
+cd "$raiz/frontend"
+npm run lint
+npm run test:schemas
+npm run build
+
+echo "pre-push: backend (sintaxis)"
+cd "$raiz/backend"
+if [ -x venv/Scripts/python.exe ]; then py=venv/Scripts/python.exe
+elif [ -x venv/bin/python ]; then py=venv/bin/python
+else py=python3; fi
+"$py" -m compileall -q app
+
+echo "pre-push: OK"

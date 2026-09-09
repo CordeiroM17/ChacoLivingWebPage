@@ -217,10 +217,12 @@ reiniciá manualmente el proceso después de cada cambio de código.
 Cada rama está conectada a su propio entorno en Railway/Vercel (`dev` → pruebas,
 `main` → producción), para probar cambios sin tocar lo que ya funciona.
 
-## Integración continua (GitHub Actions)
+## Integración continua
 
-`.github/workflows/ci.yml` corre en cada Pull Request hacia `dev` y `main`, y en
-cada push a esas ramas. Tres jobs:
+### GitHub Actions — `.github/workflows/ci.yml`
+
+Corre en cada Pull Request hacia `dev` y `main`, y en cada push a esas ramas.
+Tres jobs:
 
 - **`frontend`**: `npm ci` → `npm run lint` → `npm run test:schemas` → `npm run build`.
 - **`backend`**: instala `requirements.txt` + `requirements-dev.txt`, verifica que
@@ -233,28 +235,31 @@ El CI usa Node 22 y Python 3.12 (lo que se despliega), no lo que tengas instalad
 localmente. Después de tocar `frontend/package.json`, correr `npm install` para
 re-sincronizar `package-lock.json` o `npm ci` falla en el CI.
 
+El repo es privado en plan Free, así que GitHub **no bloquea** el merge cuando el
+CI está en rojo — hay que mirarlo y no mergear un PR rojo.
+
+### Hook local `pre-push`
+
+`.githooks/pre-push` corre lint + `test:schemas` + build del frontend y un chequeo
+de sintaxis del backend **antes** de cada `git push`. Instalar una vez por clon:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Para saltearlo en una emergencia: `git push --no-verify`.
+
 ### Flujo de trabajo
 
 1. `git checkout dev && git pull`
 2. `git checkout -b fase/N-<slug>`
-3. Trabajar, commitear, `git push -u origin fase/N-<slug>`
-4. Abrir el Pull Request hacia `dev`. Esperar el CI en verde.
-5. Merge. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**)
-   y redesplegar.
+3. Trabajar, commitear, `git push -u origin fase/N-<slug>` (el hook corre acá)
+4. Abrir el Pull Request hacia `dev`. Esperar el CI en verde. Mergear.
+5. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**) y
+   redesplegar.
 
 Promover a producción: PR `dev → main` → CI verde → merge → correr las
 migraciones pendientes en el Postgres de `main` antes del redeploy.
-
-### Configuración una vez en GitHub (la hace el dueño del repo)
-
-Settings → Branches → regla de protección para `dev` **y** `main`:
-
-- Require a pull request before merging
-- Require status checks to pass: `frontend`, `backend`, `sql`
-- (`main`) Require branches to be up to date before merging
-
-Las reglas se pueden activar recién **después** del primer merge del workflow
-(GitHub necesita haber visto correr esos checks al menos una vez).
 
 ## Deploy
 
