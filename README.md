@@ -207,38 +207,29 @@ puede matar sin reiniciar Windows. Si eso pasa: cambiá de puerto (`--port`) y
 actualizá `frontend/.env` (`VITE_API_BASE`), o corré uvicorn sin `--reload` y
 reiniciá manualmente el proceso después de cada cambio de código.
 
-## Ramas
+## Ramas y flujo de trabajo
 
-- `main`: lo que está desplegado en producción. No se trabaja directo acá.
-- `dev`: rama de integración (entorno de pruebas en Railway/Vercel). No se
-  commitea directo tampoco.
+- `main`: lo que está desplegado en producción.
+- `dev`: rama de integración (entorno de pruebas en Railway/Vercel).
 - `fase/N-<slug>`: una rama por unidad de trabajo, sale de `dev`.
 
 Cada rama está conectada a su propio entorno en Railway/Vercel (`dev` → pruebas,
 `main` → producción), para probar cambios sin tocar lo que ya funciona.
 
-## Integración continua
+Flujo:
 
-### GitHub Actions — `.github/workflows/ci.yml`
+1. `git checkout dev && git pull`
+2. `git checkout -b fase/N-<slug>`
+3. Trabajar, commitear. El hook `pre-push` corre al pushear (ver abajo).
+4. Mergear a `dev` (localmente: `git checkout dev && git merge fase/N-<slug>`),
+   push, y borrar la rama.
+5. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**) y
+   redesplegar.
 
-Corre en cada Pull Request hacia `dev` y `main`, y en cada push a esas ramas.
-Tres jobs:
+Promover a producción: mergear `dev` en `main`, push, correr las migraciones
+pendientes en el Postgres de `main`, redeploy.
 
-- **`frontend`**: `npm ci` → `npm run lint` → `npm run test:schemas` → `npm run build`.
-- **`backend`**: instala `requirements.txt` + `requirements-dev.txt`, verifica que
-  `import app.main` no explote, y corre `pytest` (contra un Postgres de servicio)
-  cuando existe `backend/tests/`.
-- **`sql`**: aplica `sql/schema.sql` + `sql/seed.sql` en una base limpia; y las
-  migraciones nuevas dos veces, para probar que son idempotentes.
-
-El CI usa Node 22 y Python 3.12 (lo que se despliega), no lo que tengas instalado
-localmente. Después de tocar `frontend/package.json`, correr `npm install` para
-re-sincronizar `package-lock.json` o `npm ci` falla en el CI.
-
-El repo es privado en plan Free, así que GitHub **no bloquea** el merge cuando el
-CI está en rojo — hay que mirarlo y no mergear un PR rojo.
-
-### Hook local `pre-push`
+### Chequeo antes de pushear — hook `pre-push`
 
 `.githooks/pre-push` corre lint + `test:schemas` + build del frontend y un chequeo
 de sintaxis del backend **antes** de cada `git push`. Instalar una vez por clon:
@@ -249,17 +240,9 @@ git config core.hooksPath .githooks
 
 Para saltearlo en una emergencia: `git push --no-verify`.
 
-### Flujo de trabajo
-
-1. `git checkout dev && git pull`
-2. `git checkout -b fase/N-<slug>`
-3. Trabajar, commitear, `git push -u origin fase/N-<slug>` (el hook corre acá)
-4. Abrir el Pull Request hacia `dev`. Esperar el CI en verde. Mergear.
-5. Correr la migración de la fase en el Postgres de `dev` (ver **Deploy**) y
-   redesplegar.
-
-Promover a producción: PR `dev → main` → CI verde → merge → correr las
-migraciones pendientes en el Postgres de `main` antes del redeploy.
+Los tests de backend (`pytest`, contra un Postgres local) se corren a mano:
+`cd backend && pytest` (necesita `pip install -r requirements-dev.txt` y la base
+de Docker levantada).
 
 ## Deploy
 
